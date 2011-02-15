@@ -1,0 +1,621 @@
+#!/usr/bin/php -q
+<?php
+/**
+* @package Beanstalk
+* @author Leon Barrett
+* @link https://github.com/leonbarrett/BeanstalkappCLI
+* @copyright Copyright (c) 2011, Leon Barrett
+*/
+class Beanstalk
+{
+	
+	//Beanstalk account name
+	const beanstalk_account = '';
+	
+	//Beanstalk user name
+	const beanstalk_username = '';
+	
+	//Beanstalk password
+	const beanstalk_password = '';
+	
+	//List of allowed function names
+	private static $_valid_cli_params = array(
+		'create',
+		'create-empty',
+		'create-git',
+		'deploy',
+		'help',
+		'list',
+	);
+	
+	//List of allowed Beanstalk colours (for repos, release servers etc)
+	private static $_valid_beanstalk_colours = array(
+		'red',
+		'orange',
+		'yellow',
+		'green',
+		'blue',
+		'pink',
+		'grey',
+	);
+	
+// ------------------------------------------------------------------------
+	
+	/**
+	 * The Constructor!
+	 *
+	 * @access public
+	 * @author Leon Barrett
+	 */
+	public function __construct()
+	{
+		
+	} // End of __construct
+	
+// ------------------------------------------------------------------------
+	
+	/**
+	 * Checks that the 1st parameter matches a set array, and then calls a function if so
+	 * Will throw an error if function is not defined
+	 *
+	 * @access public
+	 * @static
+	 * @param array $args : $argv;
+	 * @return void|bool : Throws an Exception if validation fails. Otherwise, return TRUE.
+	 * @author Leon Barrett
+	 */
+	public static function init($args)
+	{
+		// First thing to do is to verify that the first parameter is a valid keyword!
+		if (!in_array($args[1], self::$_valid_cli_params))
+			throw new Exception($args[1] . ' is not a valid type! Type beanstalk help for instructions on how to use this script!');
+		
+		//Call required function based on user input
+		$action = $args[1];
+		
+		switch($action){
+		
+			case 'create':
+				self::create_repo($args);
+			break;
+			
+			case 'create-git':
+				self::create_git_repo($args);
+			break;
+			
+			case 'create-empty':
+				self::create_empty_repo($args);
+			break;
+			
+			case 'deploy':
+				self::_display_message('notice', 'Coming soon, hopefully!');
+			break;
+			
+			case 'list':
+				self::list_repos();
+			break;
+			
+			case 'help':
+				self::help();
+			break;
+			
+		}
+		
+		return TRUE;
+	} // End of init
+	
+// ------------------------------------------------------------------------
+	
+	/**
+	 * Lists repos for the current account
+	 *
+	 * @access public
+	 * @static
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function list_repos(){
+		
+		$repos = self::make_api_call('repositories.xml');
+		
+		if($repos->error){
+			self::_display_message('error', 'Error creating fetching repos',TRUE);
+			
+			foreach($repos->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}
+		
+		if(count($repos->repository)>0):
+			
+			self::_display_message('notice', 'Listing repos for '.self::beanstalk_account);
+			
+			foreach($repos->repository as $repo):
+				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
+				$_message = $type.': '.$repo->name.' ('.$repo->revision.')';
+				$_message .= "\n";
+			
+				fwrite(STDOUT, $_message);
+				
+			endforeach;
+			
+		else:
+		
+			self::_display_message('notice', 'No repos for '.self::beanstalk_account);
+			
+		endif;
+		
+	}
+	
+	/**
+	 * Creates empty SVN repo, without server environments
+	 *
+	 * @access public
+	 * @static
+	 * @return void
+	 * @param array $params
+	 * @author Leon Barrett
+	 */
+	public static function create_empty_repo($params){
+				
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+		
+		$repo_colour = $params[3]==''?'blue':$params[3];
+		
+		if (!in_array($repo_colour, self::$_valid_beanstalk_colours))
+			throw new Exception($repo_colour . ' is not a valid repo colour!');
+		
+		$title = self::_create_slug($repo_name);
+		
+		self::_display_message('notice', 'Starting to create '.$repo_name);
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<repository>
+		  <name>'.$title.'</name>
+		  <title>'.$repo_name.'</title>
+		  <color_label>label-'.$repo_colour.'</color_label>
+		  <create_structure type="boolean">true</create_structure>
+		</repository>';
+		
+		$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
+		
+		if($create_empty_repo->error){
+			self::_display_message('error', 'Error creating '.$repo_name,TRUE);
+			
+			foreach($create_empty_repo->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}
+		
+		self::_display_message('notice', 'Finished setting up '.$repo_name);
+		self::_display_message('notice', 'Repo path:  https://'.self::beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
+	}
+	
+	
+	/**
+	 * Creates a repo with a Staging and Production release server. Swap out the values for your own server details
+	 *
+	 * @access public
+	 * @static
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function create_repo($params){
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+		
+		$repo_colour = $params[3]==''?'blue':$params[3];
+		
+		if (!in_array($repo_colour, self::$_valid_beanstalk_colours))
+			throw new Exception($repo_colour . ' is not a valid repo colour!');
+		
+		$title = self::_create_slug($repo_name);
+		
+		self::_display_message('notice', 'Starting to create '.$repo_name);
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<repository>
+		  <name>'.$title.'</name>
+		  <title>'.$repo_name.'</title>
+		  <color_label>label-'.$repo_colour.'</color_label>
+		  <create_structure type="boolean">true</create_structure>
+		</repository>';
+		
+		
+		$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
+		
+		
+		if($create_empty_repo->error){
+			self::_display_message('error', 'Error creating '.$repo_name,TRUE);
+			
+			foreach($create_empty_repo->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}else{
+			self::_display_message('notice', 'Created '.$repo_name);
+			self::_display_message('notice', 'Setting up Staging Environment for '.$repo_name);
+		}
+		
+		$new_repo_id = $create_empty_repo->id;
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<server-environment>  
+		  <name>Staging</name>
+		  <automatic>true</automatic>
+		  <color_label>label-grey</color_label>
+		</server-environment>';
+		
+		$create_staging_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
+		
+		if($create_staging_env->error){
+			self::_display_message('error', 'Error creating Staging Environment',TRUE);
+			
+			foreach($create_staging_env->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}else{
+			self::_display_message('notice', 'Created Staging Environment');
+			self::_display_message('notice', 'Setting up Staging Release Server');
+		}
+		
+		$staging_env_id = $create_staging_env->id;
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<release_server>  
+		  <name></name>
+		  <local_path></local_path>
+		  <remote_path></remote_path>
+		  <remote_addr></remote_addr>
+		  <protocol></protocol>
+		  <port></port>
+		  <login></login>
+		  <password></password>
+		  <pre_release_hook></pre_release_hook>
+		  <post_release_hook></post_release_hook>
+		</release_server>';
+		
+		$create_staging_server = self::make_api_post_call($new_repo_id.'/release_servers.xml?environment_id='.$staging_env_id,$api_data);
+		
+		if($create_staging_server->error){
+			self::_display_message('error', 'Error creating Staging Release Server',TRUE);
+			
+			foreach($create_staging_server->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}else{
+			self::_display_message('notice', 'Created Staging Release Server');
+			self::_display_message('notice', 'Setting up Production Environment for '.$repo_name);
+		}
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<server-environment>  
+		  <name>Production</name>
+		  <automatic>false</automatic>
+		  <color_label>label-green</color_label>
+		</server-environment>';
+		
+		$create_prod_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
+		
+		if($create_prod_env->error){
+			self::_display_message('error', 'Error creating Production Environment',TRUE);
+			
+			foreach($create_prod_env->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}
+		
+		$prod_env_id = $create_prod_env->id;
+		
+		fwrite(STDOUT, "Production Server FTP Username: ");
+		$prod_srv_username = trim(fgets(STDIN));
+		
+		fwrite(STDOUT, "Production Server FTP Password: ");
+		$prod_srv_password = trim(fgets(STDIN));
+		
+		self::_display_message('notice', 'Creating Production Release Server');
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<release_server>  
+		  <name></name>
+		  <local_path></local_path>
+		  <remote_path></remote_path>
+		  <remote_addr></remote_addr>
+		  <protocol></protocol>
+		  <port></port>
+		  <login>'.$prod_srv_username.'</login>
+		  <password>'.$prod_srv_password.'</password>
+		  <pre_release_hook></pre_release_hook>
+		  <post_release_hook></post_release_hook>
+		</release_server>';
+		
+		$create_prod_server = self::make_api_post_call($new_repo_id.'/release_servers.xml?environment_id='.$prod_env_id,$api_data);
+		
+		if($create_prod_server->error){
+			self::_display_message('error', 'Error creating Production Release Server',TRUE);
+			
+			foreach($create_staging_server->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}else{
+			self::_display_message('notice', 'Finished setting up '.$repo_name);
+			self::_display_message('notice', 'Repo path:  https://'.self::beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
+		}
+		
+		
+		
+
+	}
+	
+	/**
+	 * Creates a GIT repo
+	 *
+	 * @access public
+	 * @static
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function create_git_repo($params){
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+		
+		$repo_colour = $params[3]==''?'blue':$params[3];
+		
+		if (!in_array($repo_colour, self::$_valid_beanstalk_colours))
+			throw new Exception($repo_colour . ' is not a valid repo colour!');
+		
+		$title = self::_create_slug($repo_name);
+		
+		self::_display_message('notice', 'Starting to create '.$repo_name);
+		
+		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+		<repository>
+		  <name>'.$title.'</name>
+		  <title>'.$repo_name.'</title>
+		  <color_label>label-'.$repo_colour.'</color_label>
+		  <type_id>git</type_id>
+		</repository>';
+		
+		
+		$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
+		
+		
+		if($create_empty_repo->error){
+			self::_display_message('error', 'Error creating '.$repo_name,TRUE);
+			
+			foreach($create_empty_repo->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}else{
+			self::_display_message('notice', 'Finished setting up GIT repo - '.$repo_name);
+			self::_display_message('notice', 'Git clone URL git@'.self::beanstalk_account.'.beanstalkapp.com:/'.$repo_name.'.git');
+		}
+
+	}
+	
+		
+// ------------------------------------------------------------------------
+	
+	/**
+	 * Displays help for the end user
+	 *
+	 * @access public
+	 * @static
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function help()
+	{	
+		$string = "\n\n";
+		$string .= "This is a command line tool to create template beanstalk repos with associated server environments.
+					
+What this tool is - a quick and simple way to create repos that follow a template/structure.
+					
+What this tool is NOT - a complete CLI for beanstalk
+
+To create a blank SVN repo type: beanstalk create-empty REPO_NAME (required) COLOUR (optional), this will create a repo without and release servers.
+
+To create an SVN repo with a staging and production environment type: beanstalk create REPO_NAME (required) COLOUR (optional).
+
+To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (optional)";
+		
+		$string .= "\n";
+		
+		fwrite(STDOUT, $string);
+		exit();
+	} // End of help
+	
+// ------------------------------------------------------------------------
+	
+	/**
+	 * Display a message. If it's an error message, also terminate
+	 * the execution of the script.
+	 *
+	 * @access protected
+	 * @static
+	 * @param string $type : The type of the message. Leave empty to send a regular message.
+	 * @param string $message : The message.
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	protected static function _display_message($type = '', $message = '', $continue = FALSE)
+	{
+		if (empty($message))
+		{
+			$type = 'error';
+			$message = 'You tried to display a message but didn\'t provide the message...';
+		}
+		
+		$_message_type = array(
+			'error', 'warning', 'notice',
+		);
+		
+		$_label = '';
+		if (in_array($type, $_message_type))
+		{
+			$_label = strtoupper($type) . ': ';
+		}
+		
+		$_message  = "\n";
+		$_message .= $_label . $message;
+		$_message .= "\n";
+		
+		fwrite(STDOUT, $_message);
+		unset($_label, $_message, $message);
+		
+		if ($type == 'error' && $continue === FALSE)
+			exit();
+		else
+			return;
+	} // End of _display_message
+	
+	
+	/**
+	 * Creates a slug for the repo name
+	 *
+	 * @access public
+	 * @static
+	 * @param string $str: input string
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function _create_slug($str, $replace=array(), $delimiter='-') {
+
+		setlocale(LC_ALL, 'en_US.UTF8');
+		
+		if( !empty($replace) ) {
+			$str = str_replace((array)$replace, ' ', $str);
+		}
+		
+		$clean = iconv('UTF-8', 'ASCII//TRANSLIT', $str);
+		$clean = preg_replace("/[^a-zA-Z0-9\/_|+ -]/", '', $clean);
+		$clean = strtolower(trim($clean, '-'));
+		$clean = preg_replace("/[\/_|+ -]+/", $delimiter, $clean);
+		
+		return $clean;
+	}
+	
+	/**
+	 * Makes a standard API call
+	 *
+	 * @access public
+	 * @static
+	 * @param $api_params
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function make_api_call($api_params){
+	
+	  $url = "http://" . self::beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
+	
+	//echo $url;die();
+		$ch = NULL;
+		$results = NULL;
+		
+		$ch = curl_init();
+	
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_USERPWD, self::beanstalk_username . ':' . self::beanstalk_password);
+	
+		$results = curl_exec($ch);
+		curl_close($ch);
+		
+		$xml = @simplexml_load_string($results);
+		
+		if(!$xml){
+			$errors[0] = 'error';
+			$errors[1] = $results;
+			return false;
+		}
+
+		return $xml;
+		
+	}
+	
+	/**
+	 * Makes a write API call
+	 *
+	 * @access public
+	 * @static
+	 * @params $api_params, $post_string: XML post data
+	 * @return void
+	 * @author Leon Barrett
+	 */
+	public static function make_api_post_call($api_params,$post_string){
+	
+	  $url = "http://" .self::beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
+	
+	//echo $url;die();
+		$ch = NULL;
+		$result = NULL;
+		
+		//open connection
+		$ch = curl_init();
+		
+		//set the url, number of POST vars, POST data
+		curl_setopt($ch,CURLOPT_URL,$url);
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml'));
+		curl_setopt($ch,CURLOPT_POSTFIELDS,"$post_string");
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		
+		curl_setopt($ch, CURLOPT_USERPWD, self::beanstalk_username . ':' . self::beanstalk_password);
+		//execute post
+		$result = curl_exec($ch);
+		
+		//close connection
+		curl_close($ch);
+				
+		$xml = @simplexml_load_string($result);
+				
+		if(!$xml){
+			
+			return false;
+		}
+
+		return $xml;	
+		
+		
+	}
+	
+	
+} // End of Beanstalk class
+
+// -Query-Validation-------------------------------------------------------
+try {
+	Beanstalk::init($argv);
+} catch (Exception $e) {
+	exit('ERROR: ' . $e->getMessage() . "\n");
+}
+// ------------------------------------------------------------------------
