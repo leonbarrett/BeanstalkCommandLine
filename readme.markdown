@@ -32,3 +32,8 @@ list - return a list of repos
 create-empty - will create an SVN repo without any release servers
 
 create-git - will create an empty GIT repo
+
+Thanks
+=====
+
+Thanks to https://github.com/AzizLight/fire for inspiration (and code) to create the script!
