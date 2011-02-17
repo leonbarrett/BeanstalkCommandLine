@@ -1,5 +1,7 @@
 #!/usr/bin/php -q
 <?php
+
+date_default_timezone_set('Europe/London');
 /**
 * @package Beanstalk
 * @author Leon Barrett
@@ -26,6 +28,9 @@ class Beanstalk
 		'deploy',
 		'help',
 		'list',
+		'repo',
+		'changes',
+		'releases',
 	);
 	
 	//List of allowed Beanstalk colours (for repos, release servers etc)
@@ -88,7 +93,7 @@ class Beanstalk
 			break;
 			
 			case 'deploy':
-				self::_display_message('notice', 'Coming soon, hopefully!');
+				self::_display_message('', '******************** COMING SOON ********************');
 			break;
 			
 			case 'list':
@@ -99,12 +104,120 @@ class Beanstalk
 				self::help();
 			break;
 			
+			case 'repo':
+				self::fetch_repo($args);
+			break;
+			
+			case 'changes':
+				self::fetch_changes($args);
+			break;
+			
+			case 'releases':
+				self::fetch_releases($args);
+			break;
+					
 		}
 		
 		return TRUE;
 	} // End of init
 	
 // ------------------------------------------------------------------------
+	
+	function fetch_changes($params){
+		
+		self::_display_message('', '******************** REPO CHANGES ********************');
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name/ID: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+				
+		$changeset = self::make_api_call('changesets/repository.xml?repository_id='.$repo_name);
+		
+		self::display_errors($changeset);
+		
+		$prev_date = date('d',strtotime($changeset->{'revision-cache'}[0]->time));
+		self::_display_message('', '*** '. date('dS M Y',strtotime($changeset->{'revision-cache'}[0]->time)).' ***');
+		
+		foreach($changeset->{'revision-cache'} as $change):
+		if(date('d',strtotime($change->time)) != $prev_date){
+		self::_display_message('', '*** '. date('dS M Y',strtotime($change->time)).' ***');
+		$prev_date = date('d',strtotime($change->time));
+		} 
+		
+		self::_display_message('',$change->message. '('.$change->revision.')'."\n".'by '.$change->author.' at '.date('H:i',strtotime($change->time)));			
+		endforeach;
+		
+		self::_display_message('', '********************');
+	}
+	
+	function fetch_releases($params){
+		
+		self::_display_message('', '******************** REPO RELEASES ********************');
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name/ID: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+				
+		$releases = self::make_api_call($repo_name.'/releases.xml');
+		
+		self::display_errors($releases);
+		
+		$prev_date = date('d',strtotime($releases->release[0]->{'deployed-at'}));
+		self::_display_message('', '*** '. date('dS M Y',strtotime($releases->release[0]->{'deployed-at'})).' ***');
+		
+		foreach($releases->release as $release):
+		if(date('d',strtotime($release->{'deployed-at'})) != $prev_date){
+		self::_display_message('', '*** '. date('dS M Y',strtotime($release->{'deployed-at'})).' ***');
+		$prev_date = date('d',strtotime($release->{'deployed-at'}));
+		} 
+		
+		self::_display_message('',$release->{'environment-name'}. ' ('.$release->revision.') by '.$release->author.' at '.date('H:i',strtotime($release->{'deployed-at'}))."\n".$release->comment."\n".$release->state );
+
+			
+		endforeach;
+		
+		self::_display_message('', '********************');
+	}
+	
+	function fetch_repo($params){
+		
+		self::_display_message('', '******************** REPO INFO ********************');
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name/ID: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+				
+		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
+		$envs = self::make_api_call($repo_name.'/server_environments.xml');
+		
+		self::display_errors($repo);
+		self::display_errors($envs);
+		
+		self::_display_message('', 'Repo name: '.$repo->name);
+		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
+		
+		if(count($envs) > 0):
+		
+			self::_display_message('', 'Release Environments: ('.count($envs).')');
+		
+			foreach($envs as $env):
+				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.') - '.date('dS M Y @ H:i',strtotime($repo->{'updated-at'})));
+			endforeach;
+		
+		endif;
+		
+		self::_display_message('', '********************');
+		
+	}
 	
 	/**
 	 * Lists repos for the current account
@@ -116,25 +229,17 @@ class Beanstalk
 	 */
 	public static function list_repos(){
 		
+		self::_display_message('', '******************** REPOSITORIES FOR '.self::beanstalk_account.' ********************');
+		
 		$repos = self::make_api_call('repositories.xml');
 		
-		if($repos->error){
-			self::_display_message('error', 'Error creating fetching repos',TRUE);
-			
-			foreach($repos->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}
+		self::display_errors($repos);
 		
 		if(count($repos->repository)>0):
-			
-			self::_display_message('notice', 'Listing repos for '.self::beanstalk_account);
-			
+						
 			foreach($repos->repository as $repo):
 				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-				$_message = $type.': '.$repo->name.' ('.$repo->revision.')';
+				$_message = $type.': '.$repo->name.' ('.$repo->revision.') - ID '.$repo->id;
 				$_message .= "\n";
 			
 				fwrite(STDOUT, $_message);
@@ -143,9 +248,11 @@ class Beanstalk
 			
 		else:
 		
-			self::_display_message('notice', 'No repos for '.self::beanstalk_account);
+			self::_display_message('error', 'No repos for '.self::beanstalk_account);
 			
 		endif;
+		
+		self::_display_message('', '********************');
 		
 	}
 	
@@ -159,6 +266,8 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public static function create_empty_repo($params){
+		
+		self::_display_message('', '******************** CREATING EMPTY SVN REPO ********************');
 				
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name: ");
@@ -174,7 +283,7 @@ class Beanstalk
 		
 		$title = self::_create_slug($repo_name);
 		
-		self::_display_message('notice', 'Starting to create '.$repo_name);
+		self::_display_message('', 'Starting to create '.$repo_name);
 		
 		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 		<repository>
@@ -186,18 +295,12 @@ class Beanstalk
 		
 		$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
 		
-		if($create_empty_repo->error){
-			self::_display_message('error', 'Error creating '.$repo_name,TRUE);
-			
-			foreach($create_empty_repo->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}
+		self::display_errors($create_empty_repo);
 		
-		self::_display_message('notice', 'Finished setting up '.$repo_name);
-		self::_display_message('notice', 'Repo path:  https://'.self::beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
+		self::_display_message('', 'Finished setting up '.$repo_name);
+		self::_display_message('', 'Repo path:  https://'.self::beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
+		
+		self::_display_message('', '********************');
 	}
 	
 	
@@ -210,6 +313,8 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public static function create_repo($params){
+		
+		self::_display_message('', '******************** CREATING SVN REPO ********************');
 		
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name: ");
@@ -233,24 +338,14 @@ class Beanstalk
 		  <title>'.$repo_name.'</title>
 		  <color_label>label-'.$repo_colour.'</color_label>
 		  <create_structure type="boolean">true</create_structure>
-		</repository>';
-		
+		</repository>';		
 		
 		$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
 		
+		self::display_errors($create_empty_repo);
 		
-		if($create_empty_repo->error){
-			self::_display_message('error', 'Error creating '.$repo_name,TRUE);
-			
-			foreach($create_empty_repo->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}else{
-			self::_display_message('notice', 'Created '.$repo_name);
-			self::_display_message('notice', 'Setting up Staging Environment for '.$repo_name);
-		}
+		self::_display_message('', 'Created '.$repo_name);
+		self::_display_message('', 'Setting up Staging Environment for '.$repo_name);
 		
 		$new_repo_id = $create_empty_repo->id;
 		
@@ -263,25 +358,17 @@ class Beanstalk
 		
 		$create_staging_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
 		
-		if($create_staging_env->error){
-			self::_display_message('error', 'Error creating Staging Environment',TRUE);
-			
-			foreach($create_staging_env->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}else{
-			self::_display_message('notice', 'Created Staging Environment');
-			self::_display_message('notice', 'Setting up Staging Release Server');
-		}
+		self::display_errors($create_staging_env);
+
+		self::_display_message('', 'Created Staging Environment');
+		self::_display_message('', 'Setting up Staging Release Server');
 		
 		$staging_env_id = $create_staging_env->id;
 		
 		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 		<release_server>  
 		  <name></name>
-		  <local_path></local_path>
+		  <local_path>/trunk</local_path>
 		  <remote_path></remote_path>
 		  <remote_addr></remote_addr>
 		  <protocol></protocol>
@@ -294,18 +381,10 @@ class Beanstalk
 		
 		$create_staging_server = self::make_api_post_call($new_repo_id.'/release_servers.xml?environment_id='.$staging_env_id,$api_data);
 		
-		if($create_staging_server->error){
-			self::_display_message('error', 'Error creating Staging Release Server',TRUE);
-			
-			foreach($create_staging_server->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}else{
-			self::_display_message('notice', 'Created Staging Release Server');
-			self::_display_message('notice', 'Setting up Production Environment for '.$repo_name);
-		}
+		self::display_errors($create_staging_server);
+
+		self::_display_message('', 'Created Staging Release Server');
+		self::_display_message('', 'Setting up Production Environment for '.$repo_name);
 		
 		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 		<server-environment>  
@@ -316,15 +395,7 @@ class Beanstalk
 		
 		$create_prod_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
 		
-		if($create_prod_env->error){
-			self::_display_message('error', 'Error creating Production Environment',TRUE);
-			
-			foreach($create_prod_env->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}
+		self::display_errors($create_prod_env);
 		
 		$prod_env_id = $create_prod_env->id;
 		
@@ -334,7 +405,7 @@ class Beanstalk
 		fwrite(STDOUT, "Production Server FTP Password: ");
 		$prod_srv_password = trim(fgets(STDIN));
 		
-		self::_display_message('notice', 'Creating Production Release Server');
+		self::_display_message('', 'Creating Production Release Server');
 		
 		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 		<release_server>  
@@ -352,21 +423,12 @@ class Beanstalk
 		
 		$create_prod_server = self::make_api_post_call($new_repo_id.'/release_servers.xml?environment_id='.$prod_env_id,$api_data);
 		
-		if($create_prod_server->error){
-			self::_display_message('error', 'Error creating Production Release Server',TRUE);
-			
-			foreach($create_staging_server->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}else{
-			self::_display_message('notice', 'Finished setting up '.$repo_name);
-			self::_display_message('notice', 'Repo path:  https://'.self::beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
-		}
+		self::display_errors($create_prod_server);
 		
+		self::_display_message('', 'Finished setting up '.$repo_name);
+		self::_display_message('', 'Repo path:  https://'.self::beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);		
 		
-		
+		self::_display_message('', '********************');
 
 	}
 	
@@ -379,6 +441,8 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public static function create_git_repo($params){
+		
+		self::_display_message('', '******************** CREATING GIT REPO ********************');
 		
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name: ");
@@ -394,7 +458,7 @@ class Beanstalk
 		
 		$title = self::_create_slug($repo_name);
 		
-		self::_display_message('notice', 'Starting to create '.$repo_name);
+		self::_display_message('', 'Starting to create '.$repo_name);
 		
 		$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 		<repository>
@@ -402,24 +466,16 @@ class Beanstalk
 		  <title>'.$repo_name.'</title>
 		  <color_label>label-'.$repo_colour.'</color_label>
 		  <type_id>git</type_id>
-		</repository>';
-		
+		</repository>';		
 		
 		$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
 		
+		self::display_errors($create_empty_repo);
+
+		self::_display_message('', 'Finished setting up GIT repo - '.$repo_name);
+		self::_display_message('', 'Git clone URL git@'.self::beanstalk_account.'.beanstalkapp.com:/'.$repo_name.'.git');
 		
-		if($create_empty_repo->error){
-			self::_display_message('error', 'Error creating '.$repo_name,TRUE);
-			
-			foreach($create_empty_repo->error as $error):
-				self::_display_message('error', $error,TRUE);
-			endforeach;
-			
-			exit();
-		}else{
-			self::_display_message('notice', 'Finished setting up GIT repo - '.$repo_name);
-			self::_display_message('notice', 'Git clone URL git@'.self::beanstalk_account.'.beanstalkapp.com:/'.$repo_name.'.git');
-		}
+		self::_display_message('', '********************');
 
 	}
 	
@@ -499,6 +555,19 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 			return;
 	} // End of _display_message
 	
+	public static function display_errors($call){
+		
+		if($call->error){
+			self::_display_message('error', 'Errors',TRUE);
+			
+			foreach($call->error as $error):
+				self::_display_message('error', $error,TRUE);
+			endforeach;
+			
+			exit();
+		}
+		
+	}
 	
 	/**
 	 * Creates a slug for the repo name
