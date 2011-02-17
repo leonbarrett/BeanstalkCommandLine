@@ -35,6 +35,12 @@ create-empty - will create an SVN repo without any release servers
 
 create-git - will create an empty GIT repo
 
+changes - will list the most recent changes, grouped by date then ordered by time, with the revision and author
+
+releases - will list the most recent releases, grouped by date then ordered by time, with the revision and author
+
+repo - will show info, and server environments for a repo
+
 Thanks
 =====
 
