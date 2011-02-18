@@ -1,6 +1,6 @@
 #!/usr/bin/php -q
 <?php
-
+error_reporting(0);
 date_default_timezone_set('Europe/London');
 /**
 * @package Beanstalk
