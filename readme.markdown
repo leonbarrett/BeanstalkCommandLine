@@ -17,11 +17,18 @@ Download the file and make it executable
 
 `chmod a+x beanstalk`
 
-Open the file in a text editor and go through and add your Beanstalk account details and then the FTP server details for your repos.
-
 Either place it in your path, or add to your path.
 
 `PATH=/Users/user_name/bin:$PATH`
+
+Add a beanstalk_cli.config to your home directory containing: \n
+
+[account_settings]
+account = 
+username = 
+password =
+
+Type `beanstalk help` check your settings
 
 Methods
 =====

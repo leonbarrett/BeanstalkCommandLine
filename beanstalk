@@ -1,6 +1,6 @@
 #!/usr/bin/php -q
 <?php
-error_reporting(0);
+error_reporting(1);
 date_default_timezone_set('Europe/London');
 /**
 * @package Beanstalk
@@ -10,15 +10,15 @@ date_default_timezone_set('Europe/London');
 */
 class Beanstalk
 {
-	
+		
 	//Beanstalk account name
-	const beanstalk_account = '';
+	private $beanstalk_account;
 	
 	//Beanstalk user name
-	const beanstalk_username = '';
+	private $beanstalk_username;
 	
 	//Beanstalk password
-	const beanstalk_password = '';
+	private $beanstalk_password;
 	
 	//List of allowed function names
 	private static $_valid_cli_params = array(
@@ -54,7 +54,23 @@ class Beanstalk
 	 */
 	public function __construct()
 	{
-		
+		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
+
+		if (file_exists($config_file)):
+			if (parse_ini_file($config_file)):
+				$config = parse_ini_file($config_file);
+				$this->beanstalk_account = $config['account'];
+				$this->beanstalk_username = $config['username'];
+				$this->beanstalk_password = $config['password'];
+			else:
+			throw new Exception($args[1] . "Add a beanstalk_cli.config to your home directory containing: \n
+[account_settings]
+account = 
+username = 
+password =");
+			endif;
+		endif;
+			
 	} // End of __construct
 	
 // ------------------------------------------------------------------------
@@ -69,7 +85,7 @@ class Beanstalk
 	 * @return void|bool : Throws an Exception if validation fails. Otherwise, return TRUE.
 	 * @author Leon Barrett
 	 */
-	public static function init($args)
+	public function init($args)
 	{
 		// First thing to do is to verify that the first parameter is a valid keyword!
 		if (!in_array($args[1], self::$_valid_cli_params))
@@ -227,9 +243,9 @@ class Beanstalk
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function list_repos(){
-		
-		self::_display_message('', '******************** REPOSITORIES FOR '.self::beanstalk_account.' ********************');
+	public function list_repos(){
+				
+		self::_display_message('', '******************** REPOSITORIES FOR '.$this->beanstalk_account.' ********************');
 		
 		$repos = self::make_api_call('repositories.xml');
 		
@@ -265,7 +281,7 @@ class Beanstalk
 	 * @param array $params
 	 * @author Leon Barrett
 	 */
-	public static function create_empty_repo($params){
+	public function create_empty_repo($params){
 		
 		self::_display_message('', '******************** CREATING EMPTY SVN REPO ********************');
 				
@@ -312,7 +328,7 @@ class Beanstalk
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function create_repo($params){
+	public function create_repo($params){
 		
 		self::_display_message('', '******************** CREATING SVN REPO ********************');
 		
@@ -440,7 +456,7 @@ class Beanstalk
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function create_git_repo($params){
+	public function create_git_repo($params){
 		
 		self::_display_message('', '******************** CREATING GIT REPO ********************');
 		
@@ -490,7 +506,7 @@ class Beanstalk
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function help()
+	public function help()
 	{	
 		$string = "\n\n";
 		$string .= "This is a command line tool to create template beanstalk repos with associated server environments.
@@ -555,7 +571,7 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 			return;
 	} // End of _display_message
 	
-	public static function display_errors($call){
+	public function display_errors($call){
 		
 		if($call->error){
 			self::_display_message('error', 'Errors',TRUE);
@@ -578,7 +594,7 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function _create_slug($str, $replace=array(), $delimiter='-') {
+	public function _create_slug($str, $replace=array(), $delimiter='-') {
 
 		setlocale(LC_ALL, 'en_US.UTF8');
 		
@@ -603,11 +619,10 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function make_api_call($api_params){
+	public function make_api_call($api_params){
 	
-	  $url = "http://" . self::beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
+	  $url = "http://" . $this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
 	
-	//echo $url;die();
 		$ch = NULL;
 		$results = NULL;
 		
@@ -615,7 +630,7 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 	
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_URL, $url);
-		curl_setopt($ch, CURLOPT_USERPWD, self::beanstalk_username . ':' . self::beanstalk_password);
+		curl_setopt($ch, CURLOPT_USERPWD, $this->beanstalk_username . ':' . $this->beanstalk_password);
 	
 		$results = curl_exec($ch);
 		curl_close($ch);
@@ -641,11 +656,10 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public static function make_api_post_call($api_params,$post_string){
+	public function make_api_post_call($api_params,$post_string){
 	
-	  $url = "http://" .self::beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
+	  	$url = "http://" .$this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
 	
-	//echo $url;die();
 		$ch = NULL;
 		$result = NULL;
 		
@@ -659,7 +673,7 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 		curl_setopt($ch,CURLOPT_POSTFIELDS,"$post_string");
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		
-		curl_setopt($ch, CURLOPT_USERPWD, self::beanstalk_username . ':' . self::beanstalk_password);
+		curl_setopt($ch, CURLOPT_USERPWD, $this->beanstalk_username . ':' . $this->beanstalk_password);
 		//execute post
 		$result = curl_exec($ch);
 		
@@ -683,7 +697,8 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 
 // -Query-Validation-------------------------------------------------------
 try {
-	Beanstalk::init($argv);
+	$beanstalk = new Beanstalk();
+	$beanstalk->init($argv);
 } catch (Exception $e) {
 	exit('ERROR: ' . $e->getMessage() . "\n");
 }
