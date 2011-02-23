@@ -508,18 +508,23 @@ password =");
 	 */
 	public function help()
 	{	
-		$string = "\n\n";
-		$string .= "This is a command line tool to create template beanstalk repos with associated server environments.
-					
-What this tool is - a quick and simple way to create repos that follow a template/structure.
-					
-What this tool is NOT - a complete CLI for beanstalk
+		$string = "\n";
+		$string .= "== Beanstalk
 
-To create a blank SVN repo type: beanstalk create-empty REPO_NAME (required) COLOUR (optional), this will create a repo without and release servers.
+This is a command line tool to control Beanstalk (http://beanstalkapp.com/) repositories, environments and deployments.
 
-To create an SVN repo with a staging and production environment type: beanstalk create REPO_NAME (required) COLOUR (optional).
+== General Commands
 
-To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (optional)";
+help                                            # Display this message
+
+create-empty [<repo_name>] <colour>             # Create a empty SVN repository
+create [<repo_name>]                            # Create a SVN repository with staging and production envrionments
+create-git [<repo_name>] <colour>               # Create an empty GIT repository
+list                                            # List current repositories
+changes [<repo_name>]                           # List changes for a repository
+releases [<repo_name>]                          # List releases for a repository
+repo [<repo_name>]                              # Display repository information
+";
 		
 		$string .= "\n";
 		
@@ -687,7 +692,7 @@ To create a GIT repo type: beanstalk create-git REPO_NAME (required) COLOUR (opt
 			return false;
 		}
 
-		return $xml;	
+		return $xml;
 		
 		
 	}
