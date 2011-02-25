@@ -244,7 +244,7 @@ password =");
 	 */
 	public function list_repos(){
 				
-		self::_display_message('', '******************** REPOSITORIES FOR '.$this->beanstalk_account.' ********************');
+		self::_display_message('', '=== REPOSITORIES FOR '.$this->beanstalk_account);
 		
 		$repos = self::make_api_call('repositories.xml');
 		
@@ -254,9 +254,15 @@ password =");
 						
 			foreach($repos->repository as $repo):
 				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-				$_message = $type.': '.$repo->name.' ('.$repo->revision.') - ID '.$repo->id;
+				$_message = $repo->title;
+				if ($type == 'SVN') { 
+					$_message .='('.$repo->revision.') - ';
+					$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
+				} else {
+					$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'/';
+				}
 				$_message .= "\n";
-			
+					
 				fwrite(STDOUT, $_message);
 				
 			endforeach;
