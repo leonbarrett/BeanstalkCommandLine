@@ -56,8 +56,7 @@ class Beanstalk
 	{
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
 
-		if (file_exists($config_file)):
-			if (parse_ini_file($config_file)):
+		if (file_exists($config_file) && parse_ini_file($config_file)):
 				$config = parse_ini_file($config_file);
 				$this->beanstalk_account = $config['account'];
 				$this->beanstalk_username = $config['username'];
@@ -68,8 +67,8 @@ class Beanstalk
 account = 
 username = 
 password =");
-			endif;
 		endif;
+	
 			
 	} // End of __construct
 	
