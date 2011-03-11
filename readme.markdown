@@ -37,21 +37,25 @@ Type `beanstalk help` check your settings
 Methods
 =====
 
-create - will create an SVN repo and add the staging and production release servers (update the script with your details for this to work)
+`$beanstalk create` - will create an SVN repo and add the staging and production release servers (update the script with your details for this to work)
 
-list - return a list of repos
+`$beanstalk list` - return a list of repos
 
-create-empty - will create an SVN repo without any release servers
+`$beanstalk create-empty <repo_name>` - will create an SVN repo without any release servers
 
-create-git - will create an empty GIT repo
+`$beanstalk create-git <repo_name>` - will create an empty GIT repo
 
-changes - will list the most recent changes, grouped by date then ordered by time, with the revision and author
+`$beanstalk changes <repo_name>` - will list the most recent changes, grouped by date then ordered by time, with the revision and author
 
-releases - will list the most recent releases, grouped by date then ordered by time, with the revision and author
+`$beanstalk releases <repo_name>` - will list the most recent releases, grouped by date then ordered by time, with the revision and author
 
-repo - will show info, and server environments for a repo
+`$beanstalk repo <repo_name>` - will show info, and server environments for a repo
 
-deploy - coming soon
+`$beanstalk deploy <repo_name>` - will allow you to deploy an environment. The script will prompt you for all details.
+
+`$beanstalk config` - will allow you to update your Beanstalk config details (passwords are stored as plain text!)
+
+NOTE: When passing in a repo name, this must be the name and not the title. Type `$beanstalk list` to see a list of repos (the names are within brackets).
 
 Thanks
 =====
