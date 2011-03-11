@@ -91,11 +91,23 @@ class Beanstalk
 				$this->beanstalk_username = $config['username'];
 				$this->beanstalk_password = $config['password'];
 			else:
-			throw new Exception($args[1] . "Add a beanstalk_cli.config to your home directory containing: \n
-[account_settings]
-account = 
-username = 
-password =");
+				self::_display_message('', '*** Missing Config File Please Enter Details ***');
+				
+				fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
+				$account_name = trim(fgets(STDIN));
+				
+				fwrite(STDOUT, "Please enter a Beanstalk User Name:");
+				$user_name = trim(fgets(STDIN));
+				
+				fwrite(STDOUT, "Please enter your Beanstalk Password:");
+				$password = trim(fgets(STDIN));				
+				
+				$config_file_details = "[account_settings]\n account = ".$account_name."\n username = ".$user_name."\n password = ".$password;
+				
+				$fp = fopen($config_file, 'w');
+				fwrite($fp, $config_file_details);
+				fclose($fp);				
+				
 		endif;
 	
 			
@@ -273,7 +285,7 @@ password =");
 	 */
 	public function list_repos(){
 				
-		self::_display_message('', '=== REPOSITORIES FOR '.$this->beanstalk_account);
+		self::_display_message('', '********************  REPOSITORIES FOR '.$this->beanstalk_account. '  ********************');
 		
 		$repos = self::make_api_call('repositories.xml');
 		
@@ -283,10 +295,10 @@ password =");
 						
 			foreach($repos->repository as $repo):
 				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';
+				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';				
 				$_message .= $repo->title;
+				$_message .= ' ('.$repo->name.') ';
 				if ($type == 'SVN') { 
-					$_message .='('.$repo->revision.') - ';
 					$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 				} else {
 					$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
@@ -299,7 +311,7 @@ password =");
 			
 		else:
 		
-			self::_display_message('error', 'No repos for '.self::beanstalk_account);
+			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
 			
 		endif;
 		
