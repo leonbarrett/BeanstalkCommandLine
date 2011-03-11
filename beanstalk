@@ -31,6 +31,7 @@ class Beanstalk
 		'repo',
 		'changes',
 		'releases',
+		'config'
 	);
 	
 	//List of allowed Beanstalk colours (for repos, release servers etc)
@@ -52,10 +53,10 @@ class Beanstalk
 		$out = "[0;31m";
 		break;
 		case "label-orange":
-		$out = "[1;31m";
+		$out = "[0;31m";
 		break;		
 		case "label-yellow":
-		$out = "[1;33m"; 
+		$out = "[0;33m"; 
 		break;
 		case "label-green":
 		$out = "[0;32m";
@@ -64,7 +65,7 @@ class Beanstalk
 		$out = "[0;34m";
 		break;
 		case "label-pink":
-		$out = "[1;31m";
+		$out = "[0;31m";
 		break;
 		case "label-grey":
 		$out = "[0;37m";
@@ -91,23 +92,23 @@ class Beanstalk
 				$this->beanstalk_username = $config['username'];
 				$this->beanstalk_password = $config['password'];
 			else:
-				self::_display_message('', '*** Missing Config File Please Enter Details ***');
-				
-				fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
-				$account_name = trim(fgets(STDIN));
-				
-				fwrite(STDOUT, "Please enter a Beanstalk User Name:");
-				$user_name = trim(fgets(STDIN));
-				
-				fwrite(STDOUT, "Please enter your Beanstalk Password:");
-				$password = trim(fgets(STDIN));				
-				
-				$config_file_details = "[account_settings]\n account = ".$account_name."\n username = ".$user_name."\n password = ".$password;
-				
-				$fp = fopen($config_file, 'w');
-				fwrite($fp, $config_file_details);
-				fclose($fp);				
-				
+				// self::_display_message('', '*** Missing Config File Please Enter Details ***');
+				// 				
+				// 				fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
+				// 				$account_name = trim(fgets(STDIN));
+				// 				
+				// 				fwrite(STDOUT, "Please enter a Beanstalk User Name:");
+				// 				$user_name = trim(fgets(STDIN));
+				// 				
+				// 				fwrite(STDOUT, "Please enter your Beanstalk Password:");
+				// 				$password = trim(fgets(STDIN));				
+				// 				
+				// 				$config_file_details = "[account_settings]\n account = ".$account_name."\n username = ".$user_name."\n password = ".$password;
+				// 				
+				// 				$fp = fopen($config_file, 'w+');
+				// 				fwrite($fp, $config_file_details);
+				// 				fclose($fp);				
+				$this->update_config();
 		endif;
 	
 			
@@ -149,7 +150,7 @@ class Beanstalk
 			break;
 			
 			case 'deploy':
-				self::_display_message('', '******************** COMING SOON ********************');
+				self::create_release($args);
 			break;
 			
 			case 'list':
@@ -171,6 +172,10 @@ class Beanstalk
 			case 'releases':
 				self::fetch_releases($args);
 			break;
+			
+			case 'config':
+				self::update_config();
+			break;
 					
 		}
 		
@@ -178,6 +183,103 @@ class Beanstalk
 	} // End of init
 	
 // ------------------------------------------------------------------------
+	
+	function create_release($params){
+		
+		self::_display_message('', '******************** DEPLOY REPO ********************');
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name/ID: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+		
+		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
+		$envs = self::make_api_call($repo_name.'/server_environments.xml');
+		
+		self::display_errors($repo);
+		self::display_errors($envs);
+		
+		self::_display_message('', 'Repo name: '.$repo->name);
+		self::_display_message('', 'Revision: '.$repo->revision);
+		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
+		
+		if(count($envs) > 0):
+		
+			self::_display_message('', 'Release Environments: ('.count($envs).')');
+		
+			foreach($envs as $env):
+				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
+			endforeach;
+		
+		endif;
+		
+		fwrite(STDOUT, "Please enter an Environment name to deploy: ");
+		$env_name = trim(fgets(STDIN));
+		
+		$repo_id = $repo->id;
+		
+		$env = self::make_api_call($repo_id.'/server_environments/'.$env_name.'.xml');
+		
+		$env_id = $env->id;
+		
+		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to redeploy all files: ");
+		$rev_number = trim(fgets(STDIN));
+		
+		$confirmation_string = '';
+		
+		if($rev_number == ''){
+			$confirmation_string = "You are about to re-deploy all files to ".$env_name.", are you sure you want to continue? y/n: ";
+		}else{
+			$confirmation_string = "You are about to deploy Revision ".$rev_number." to ".$env_name.", are you sure you want to continue? y/n: ";
+		}
+		
+		fwrite(STDOUT, $confirmation_string);
+		$confirmation = strtolower(trim(fgets(STDIN)));
+		
+		if($confirmation == "n"){
+			self::_display_message('', 'Deployment cancelled');
+			exit();
+		}
+		
+		if($rev_number == ''){	
+		$post_string = '<release>
+		  <deploy_from_scratch>true</deploy_from_scratch>
+		</release>';
+		}else{
+			$post_string = '<release>
+			  <revision type="integer">'.$rev_number.'</revision>
+			</release>';	
+		}
+		
+		$release = self::make_api_post_call($repo_name.'/releases.xml?environment_id='.$env_id,$post_string);
+		
+		self::_display_message('', 'Deployment status: '.$release->state);
+		
+		self::_display_message('', 'To see a list of Releases for this repo type: beanstalk releases '.$repo_name);
+	}
+	
+	function update_config(){
+		
+		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
+		
+		fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
+		$account_name = trim(fgets(STDIN));
+		
+		fwrite(STDOUT, "Please enter a Beanstalk User Name:");
+		$user_name = trim(fgets(STDIN));
+		
+		fwrite(STDOUT, "Please enter your Beanstalk Password:");
+		$password = trim(fgets(STDIN));				
+		
+		$config_file_details = "[account_settings]\n account = ".$account_name."\n username = ".$user_name."\n password = ".$password;
+		
+		$fp = fopen($config_file, 'w+');
+		fwrite($fp, $config_file_details);
+		fclose($fp);
+		
+	}
 	
 	function fetch_changes($params){
 		
@@ -255,10 +357,13 @@ class Beanstalk
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
 		$envs = self::make_api_call($repo_name.'/server_environments.xml');
 		
+		var_dump($repo);
+		
 		self::display_errors($repo);
 		self::display_errors($envs);
 		
 		self::_display_message('', 'Repo name: '.$repo->name);
+		self::_display_message('', 'Revision: '.$repo->revision);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
 		
 		if(count($envs) > 0):
@@ -266,7 +371,7 @@ class Beanstalk
 			self::_display_message('', 'Release Environments: ('.count($envs).')');
 		
 			foreach($envs as $env):
-				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.') - '.date('dS M Y @ H:i',strtotime($repo->{'updated-at'})));
+				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
 			endforeach;
 		
 		endif;
@@ -564,13 +669,15 @@ This is a command line tool to control Beanstalk (http://beanstalkapp.com/) repo
 
 help                                            # Display this message
 
-create-empty [<repo_name>] <colour>             # Create a empty SVN repository
-create [<repo_name>]                            # Create a SVN repository with staging and production envrionments
-create-git [<repo_name>] <colour>               # Create an empty GIT repository
+create-empty <repo_name> <colour>               # Create an empty SVN repository
+create <repo_name>                              # Create a SVN repository with staging and production envrionments
+create-git <repo_name> <colour>                 # Create an empty GIT repository
 list                                            # List current repositories
-changes [<repo_name>]                           # List changes for a repository
-releases [<repo_name>]                          # List releases for a repository
-repo [<repo_name>]                              # Display repository information
+changes <repo_name>                             # List changes for a repository
+releases <repo_name>                            # List releases for a repository
+repo <repo_name>                                # Display repository information
+config											# Change your account details (stored in .config file)
+deploy <repo_name>								# Allows you to deploy a repository. Follow on screen prompts for more info
 ";
 		
 		$string .= "\n";
