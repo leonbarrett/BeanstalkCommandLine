@@ -44,6 +44,35 @@ class Beanstalk
 		'grey',
 	);
 	
+	//  Colour 
+	public function colourOutput($text, $status) {
+	$out = "";
+	switch($status) {
+		case "label-red":
+		$out = "[0;31m";
+		break;
+		case "label-orange":
+		$out = "[1;31m";
+		break;		
+		case "label-yellow":
+		$out = "[1;33m"; 
+		break;
+		case "label-green":
+		$out = "[0;32m";
+		break;
+		case "label-blue":
+		$out = "[0;34m";
+		break;
+		case "label-pink":
+		$out = "[1;31m";
+		break;
+		case "label-grey":
+		$out = "[0;37m";
+		break;			
+	}
+	return chr(27) . "$out" . "$text" . chr(27) . "[0m";
+	}
+	
 // ------------------------------------------------------------------------
 	
 	/**
@@ -254,7 +283,8 @@ password =");
 						
 			foreach($repos->repository as $repo):
 				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-				$_message = $repo->title;
+				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';
+				$_message .= $repo->title;
 				if ($type == 'SVN') { 
 					$_message .='('.$repo->revision.') - ';
 					$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
