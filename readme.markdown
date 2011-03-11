@@ -32,7 +32,7 @@ account = ACCOUNT_NAME
 username = USER_NAME
 password = PASSWORD`
 
-Type `beanstalk help` check your settings
+Type `beanstalk help` for help.
 
 Methods
 =====
