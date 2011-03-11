@@ -259,7 +259,7 @@ password =");
 					$_message .='('.$repo->revision.') - ';
 					$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 				} else {
-					$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'/';
+					$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
 				}
 				$_message .= "\n";
 					
