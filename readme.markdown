@@ -37,7 +37,7 @@ Type `beanstalk help` for help.
 Methods
 =====
 
-`$beanstalk create` - will create an SVN repo and add the staging and production release servers (update the script with your details for this to work)
+`$beanstalk create <repo_name> <colour>` - will create an SVN repo and add the staging and production release servers (update the script with your details for this to work)
 
 `$beanstalk list` - return a list of repos
 
@@ -57,7 +57,12 @@ Methods
 
 `$beanstalk config` - will allow you to update your Beanstalk config details (passwords are stored as plain text!)
 
-NOTE: When passing in a repo name, this must be the name and not the title. Type `$beanstalk list` to see a list of repos (the names are within brackets).
+NOTES
+=====
+
+When passing in a repo name, this must be the name and not the title. Type `$beanstalk list` to see a list of repos (the names are within brackets).
+
+If you plan on using the `$beanstalk create <repo_name> <colour>` method to create a templated repo, and automatically create a Staging and Production server then you will need to open up the file and add in your server details. In the future these settings will be saved to a config file.
 
 Thanks
 =====
