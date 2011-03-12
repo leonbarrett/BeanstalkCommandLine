@@ -21,15 +21,18 @@ Download the file and make it executable
 
 Either place it in your path, or add to your path.
 
-`PATH=/Users/user_name/bin:$PATH`
+`echo 'export PATH=YOURPATHHERE:$PATH' >> ~/.profile`
 
 When using the tool for the 1st time you will be prompted to add in your Beanstalk details.
 
 You can also add a beanstalk_cli.config to your home directory containing:
 
 `[account_settings]
+
 account = ACCOUNT_NAME
+
 username = USER_NAME
+
 password = PASSWORD`
 
 Type `beanstalk help` for help.
