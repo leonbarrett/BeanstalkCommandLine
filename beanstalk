@@ -26,6 +26,7 @@ class Beanstalk
 		'create-empty',
 		'create-git',
 		'deploy',
+		'deploy-all',
 		'help',
 		'list',
 		'repo',
@@ -91,23 +92,7 @@ class Beanstalk
 				$this->beanstalk_account = $config['account'];
 				$this->beanstalk_username = $config['username'];
 				$this->beanstalk_password = $config['password'];
-			else:
-				// self::_display_message('', '*** Missing Config File Please Enter Details ***');
-				// 				
-				// 				fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
-				// 				$account_name = trim(fgets(STDIN));
-				// 				
-				// 				fwrite(STDOUT, "Please enter a Beanstalk User Name:");
-				// 				$user_name = trim(fgets(STDIN));
-				// 				
-				// 				fwrite(STDOUT, "Please enter your Beanstalk Password:");
-				// 				$password = trim(fgets(STDIN));				
-				// 				
-				// 				$config_file_details = "[account_settings]\n account = ".$account_name."\n username = ".$user_name."\n password = ".$password;
-				// 				
-				// 				$fp = fopen($config_file, 'w+');
-				// 				fwrite($fp, $config_file_details);
-				// 				fclose($fp);				
+			else:				
 				$this->update_config();
 		endif;
 	
@@ -150,7 +135,11 @@ class Beanstalk
 			break;
 			
 			case 'deploy':
-				self::create_release($args);
+				self::create_release($args,'single');
+			break;
+			
+			case 'deploy-all':
+				self::create_release($args,'all');
 			break;
 			
 			case 'list':
@@ -184,7 +173,7 @@ class Beanstalk
 	
 // ------------------------------------------------------------------------
 	
-	function create_release($params){
+	function create_release($params,$mode){
 		
 		self::_display_message('', '******************** DEPLOY REPO ********************');
 		
@@ -222,18 +211,24 @@ class Beanstalk
 		
 		$env = self::make_api_call($repo_id.'/server_environments/'.$env_name.'.xml');
 		
+		self::display_errors($env);
+		
 		$env_id = $env->id;
 		
-		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to redeploy all files: ");
+		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to deploy the latest revision: ");
 		$rev_number = trim(fgets(STDIN));
 		
-		$confirmation_string = '';
+		$confirmation_string = '';	
 		
 		if($rev_number == ''){
-			$confirmation_string = "You are about to re-deploy all files to ".$env_name.", are you sure you want to continue? y/n: ";
+			$confirmation_string = "You are about to deploy Revision ".$repo->revision." to ".$env_name.", are you sure you want to continue? y/n: ";
+			$rev_number = $repo->revision;
 		}else{
 			$confirmation_string = "You are about to deploy Revision ".$rev_number." to ".$env_name.", are you sure you want to continue? y/n: ";
 		}
+		
+		fwrite(STDOUT, 'Please enter a release comment (optional): ');
+		$comment = strtolower(trim(fgets(STDIN)));
 		
 		fwrite(STDOUT, $confirmation_string);
 		$confirmation = strtolower(trim(fgets(STDIN)));
@@ -243,17 +238,26 @@ class Beanstalk
 			exit();
 		}
 		
-		if($rev_number == ''){	
-		$post_string = '<release>
-		  <deploy_from_scratch>true</deploy_from_scratch>
-		</release>';
+		if($mode=='all'){
+			
+				$post_string = '<release>
+				  <deploy_from_scratch>true</deploy_from_scratch>
+				  <revision type="integer">'.$rev_number.'</revision>
+				  <comment><![CDATA['.$comment.']]></comment>
+				</release>';
 		}else{
 			$post_string = '<release>
 			  <revision type="integer">'.$rev_number.'</revision>
-			</release>';	
+			  <comment><![CDATA['.$comment.']]></comment>
+			</release>';
+			
 		}
+				
+		
 		
 		$release = self::make_api_post_call($repo_name.'/releases.xml?environment_id='.$env_id,$post_string);
+		
+		self::display_errors($release);
 		
 		self::_display_message('', 'Deployment status: '.$release->state);
 		
@@ -261,6 +265,14 @@ class Beanstalk
 	}
 	
 	function update_config(){
+		
+		fwrite(STDOUT, 'Are you sure you wish to update your settings? y/n: ');
+		$confirmation = strtolower(trim(fgets(STDIN)));
+		
+		if($confirmation == "n"){
+			self::_display_message('', 'Update cancelled');
+			exit();
+		}
 		
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
 		
@@ -326,16 +338,16 @@ class Beanstalk
 		
 		self::display_errors($releases);
 		
-		$prev_date = date('d',strtotime($releases->release[0]->{'deployed-at'}));
-		self::_display_message('', '*** '. date('dS M Y',strtotime($releases->release[0]->{'deployed-at'})).' ***');
+		$prev_date = date('d',strtotime($releases->release[0]->{'updated-at'}));
+		self::_display_message('', '*** '. date('dS M Y',strtotime($releases->release[0]->{'updated-at'})).' ***');
 		
 		foreach($releases->release as $release):
-		if(date('d',strtotime($release->{'deployed-at'})) != $prev_date){
-		self::_display_message('', '*** '. date('dS M Y',strtotime($release->{'deployed-at'})).' ***');
-		$prev_date = date('d',strtotime($release->{'deployed-at'}));
+		if(date('d',strtotime($release->{'updated-at'})) != $prev_date){
+		self::_display_message('', '*** '. date('dS M Y',strtotime($release->{'updated-at'})).' ***');
+		$prev_date = date('d',strtotime($release->{'updated-at'}));
 		} 
 		
-		self::_display_message('',$release->{'environment-name'}. ' ('.$release->revision.') by '.$release->author.' at '.date('H:i',strtotime($release->{'deployed-at'}))."\n".$release->comment."\n".$release->state );
+		self::_display_message('',$release->{'environment-name'}. ' ('.$release->revision.') by '.$release->author.' at '.date('H:i',strtotime($release->{'updated-at'}))."\n".$release->comment."\n".$release->state );
 
 			
 		endforeach;
@@ -357,13 +369,13 @@ class Beanstalk
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
 		$envs = self::make_api_call($repo_name.'/server_environments.xml');
 		
-		var_dump($repo);
-		
 		self::display_errors($repo);
 		self::display_errors($envs);
 		
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Revision: '.$repo->revision);
+		$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
+		self::_display_message('', 'Type: '.$type);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
 		
 		if(count($envs) > 0):
@@ -678,6 +690,7 @@ releases <repo_name>                            # List releases for a repository
 repo <repo_name>                                # Display repository information
 config											# Change your account details (stored in .config file)
 deploy <repo_name>								# Allows you to deploy a repository. Follow on screen prompts for more info
+deploy-all <repo_name>							# Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
 ";
 		
 		$string .= "\n";
