@@ -53,6 +53,8 @@ Methods
 
 `$beanstalk deploy <repo_name>` - will allow you to deploy an environment. The script will prompt you for all details.
 
+`$beanstalk deploy-all <repo_name>` - will allow you to re-deploy all files to an environment. The script will prompt you for all details.
+
 `$beanstalk config` - will allow you to update your Beanstalk config details (passwords are stored as plain text!)
 
 NOTE: When passing in a repo name, this must be the name and not the title. Type `$beanstalk list` to see a list of repos (the names are within brackets).
