@@ -22,17 +22,18 @@ class Beanstalk
 	
 	//List of allowed function names
 	private static $_valid_cli_params = array(
-		'create',
+		'repo',
+		'repo:create',
 		'create-empty',
 		'create-git',
-		'deploy',
-		'deploy-all',
+		'repo:deploy',
+		'repo:deployall',
 		'help',
-		'list',
-		'repo',
-		'changes',
-		'releases',
-		'config'
+		'repo:list',
+		'repo:info',
+		'repo:changes',
+		'repo:releases',
+		'account:config'
 	);
 	
 	//List of allowed Beanstalk colours (for repos, release servers etc)
@@ -128,31 +129,35 @@ class Beanstalk
 		$action = $args[1];
 		
 		switch($action){
-		
-			case 'create':
+			
+			case 'repo':
+				self::_display_message('ERROR', 'Method depreciated. Please type beanstalk help for more info');
+			break;
+			
+			case 'repo:create':
 				//self::create_repo($args);
 				self::create_repo_wizard($args);
 			break;
 			
 			case 'create-git':
-				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk create');
+				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
 				//self::create_git_repo($args);
 			break;
 			
 			case 'create-empty':
-				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk create');
+				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
 				//self::create_empty_repo($args);
 			break;
 			
-			case 'deploy':
+			case 'repo:deploy':
 				self::create_release($args,'single');
 			break;
 			
-			case 'deploy-all':
+			case 'repo:deploy-all':
 				self::create_release($args,'all');
 			break;
 			
-			case 'list':
+			case 'repo:list':
 				self::list_repos();
 			break;
 			
@@ -160,19 +165,19 @@ class Beanstalk
 				self::help();
 			break;
 			
-			case 'repo':
+			case 'repo:info':
 				self::fetch_repo($args);
 			break;
 			
-			case 'changes':
+			case 'repo:changes':
 				self::fetch_changes($args);
 			break;
 			
-			case 'releases':
+			case 'repo:releases':
 				self::fetch_releases($args);
 			break;
 			
-			case 'config':
+			case 'account:config':
 				self::update_config();
 			break;
 					
@@ -269,10 +274,51 @@ class Beanstalk
 		
 		self::display_errors($release);
 		
-		self::_display_message('', 'Deployment status: '.$release->state);
+		self::check_status($release->state,$release->id,$repo_id);
 		
-		self::_display_message('', 'To see a list of Releases for this repo type: beanstalk releases '.$repo_name);
 	}
+	
+	function check_status($status,$id,$repo){
+		
+		switch($status){
+			
+			case 'pending':
+			
+				self::_display_message('', 'Deployment pending...');
+				
+				sleep(7);
+				
+				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
+				
+				self::check_status($release->state);
+				
+			break;
+			
+			case 'waiting':
+				self::_display_message('', 'Deployment waiting...');
+				
+				sleep(7);
+				
+				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
+				
+				self::check_status($release->state);
+				
+			break;
+			
+			case 'failed':
+				self::_display_message('', 'Deployment failed.');
+			break;
+			
+			case 'success':
+				self::_display_message('', 'Deployed successfully.');
+			break;
+			
+			case 'skipped':
+				self::_display_message('', 'Deployment skipped.');
+			break;
+		}
+	}
+	
 	
 	function update_config(){
 		
@@ -603,16 +649,15 @@ This is a command line tool to control Beanstalk (http://beanstalkapp.com/) repo
 
 == General Commands
 
-help                                            # Display this message
-
-create			                                # Create a repo. Follow on screen prompts for more info
-list                                            # List current repositories
-changes <repo_name>                             # List changes for a repository
-releases <repo_name>                            # List releases for a repository
-repo <repo_name>                                # Display repository information
-config											# Change your account details (stored in .config file)
-deploy <repo_name>								# Allows you to deploy a repository. Follow on screen prompts for more info
-deploy-all <repo_name>							# Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
+help										# Display this message
+repo:create									# Create a repo. Follow on screen prompts for more info
+repo:list									# List current repositories
+repo:changes <repo_name>                    # List changes for a repository
+repo:releases <repo_name>                   # List releases for a repository
+repo:info <repo_name>                       # Display repository information
+account:config								# Change your account details (stored in .config file)
+repo:deploy <repo_name>						# Allows you to deploy a repository. Follow on screen prompts for more info
+repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
 ";
 		
 		$string .= "\n";
