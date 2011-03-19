@@ -153,7 +153,6 @@ class Beanstalk
 				self::create_release($args,'single');
 			break;
 			
-			case 'repo:deploy-all':
 			case 'repo:deployall':
 				self::create_release($args,'all');
 			break;
@@ -217,7 +216,6 @@ class Beanstalk
 			foreach($envs as $env):
 				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
 			endforeach;
-		
 		else:
 			self::_display_message('error', 'This repo does not contain any release environments');
 		endif;
@@ -295,7 +293,6 @@ class Beanstalk
 				
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
 				
-				self::check_status($release->state);
 				self::check_status($release->state,$id,$repo);
 				
 			break;
@@ -307,7 +304,6 @@ class Beanstalk
 				
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
 				
-				self::check_status($release->state);
 				self::check_status($release->state,$id,$repo);
 				
 			break;
@@ -432,10 +428,12 @@ class Beanstalk
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
 		$envs = self::make_api_call($repo_name.'/server_environments.xml');
 		
+		
 		self::display_errors($repo);
 		self::display_errors($envs);
 		
 		if(!$repo) self::_display_message('error', 'No repo found matching: '.$repo_name);
+		
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Revision: '.$repo->revision);
 		$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
@@ -768,7 +766,7 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 	 */
 	public function make_api_call($api_params){
 	
-	  $url = "http://" . $this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
+	  $url = "https://" . $this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
 	
 		$ch = NULL;
 		$results = NULL;
@@ -805,7 +803,7 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 	 */
 	public function make_api_post_call($api_params,$post_string){
 	
-	  	$url = "http://" .$this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
+	  	$url = "https://" .$this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
 	
 		$ch = NULL;
 		$result = NULL;
