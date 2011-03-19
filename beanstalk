@@ -296,6 +296,7 @@ class Beanstalk
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
 				
 				self::check_status($release->state);
+				self::check_status($release->state,$id,$repo);
 				
 			break;
 			
@@ -307,6 +308,7 @@ class Beanstalk
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
 				
 				self::check_status($release->state);
+				self::check_status($release->state,$id,$repo);
 				
 			break;
 			
