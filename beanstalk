@@ -231,6 +231,8 @@ class Beanstalk
 		
 		self::display_errors($env);
 		
+		if(!$env) self::_display_message('error', 'No environment found matching '.$env_name.'. Please try again');
+		
 		$env_id = $env->id;
 		
 		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to deploy the latest revision: ");
