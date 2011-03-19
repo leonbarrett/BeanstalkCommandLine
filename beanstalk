@@ -435,6 +435,7 @@ class Beanstalk
 		self::display_errors($repo);
 		self::display_errors($envs);
 		
+		if(!$repo) self::_display_message('error', 'No repo found matching: '.$repo_name);
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Revision: '.$repo->revision);
 		$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
