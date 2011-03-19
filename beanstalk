@@ -154,6 +154,7 @@ class Beanstalk
 			break;
 			
 			case 'repo:deploy-all':
+			case 'repo:deployall':
 				self::create_release($args,'all');
 			break;
 			
