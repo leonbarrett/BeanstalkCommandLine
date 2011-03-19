@@ -218,6 +218,8 @@ class Beanstalk
 				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
 			endforeach;
 		
+		else:
+			self::_display_message('error', 'This repo does not contain any release environments');
 		endif;
 		
 		fwrite(STDOUT, "Please enter an Environment name to deploy: ");
