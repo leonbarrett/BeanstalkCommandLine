@@ -34,6 +34,9 @@ class Beanstalk
 		'repo:changes',
 		'repo:releases',
 		'account:config'
+		'account:config',
+		'web:dashboard',
+		'web:repos',
 	);
 	
 	//List of allowed Beanstalk colours (for repos, release servers etc)
@@ -181,12 +184,26 @@ class Beanstalk
 				self::update_config();
 			break;
 					
+			case 'web:dashboard':
+				self::open_url('');
+			break;
+			
+			case 'web:repos':
+				self::open_url('repositories');
+			break;
 		}
 		
 		return TRUE;
 	} // End of init
 	
 // ------------------------------------------------------------------------
+	function open_url($path){
+		
+		$url = 'https://'.$this->beanstalk_account.'.beanstalkapp.com/'.$path;
+		
+		exec('open '.$url);
+		
+	}
 	
 	function create_release($params,$mode){
 		
@@ -439,6 +456,13 @@ class Beanstalk
 		$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
 		self::_display_message('', 'Type: '.$type);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
+		if ($type == 'SVN') { 
+			$path ='https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
+		} else {
+			$path ='git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
+		}
+		
+		self::_display_message('', 'Path: '.$path);
 		
 		if(count($envs) > 0):
 		
