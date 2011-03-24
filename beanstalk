@@ -126,7 +126,7 @@ class Beanstalk
 	{
 		// First thing to do is to verify that the first parameter is a valid keyword!
 		if (!in_array($args[1], self::$_valid_cli_params))
-			throw new Exception($args[1] . ' is not a valid type! Type beanstalk help for instructions on how to use this script!');
+			throw new Exception($this->help('beanstalk: '.$args[1]. ' is not a valid option'));
 		
 		//Call required function based on user input
 		$action = $args[1];
@@ -670,24 +670,26 @@ class Beanstalk
 	 * @return void
 	 * @author Leon Barrett
 	 */
-	public function help()
+	public function help($error = false)
 	{	
-		$string = "\n";
+		if ($error):
+			$string .= $error ."\n\n.";
+		endif;
 		$string .= "== Beanstalk
 
 This is a command line tool to control Beanstalk (http://beanstalkapp.com/) repositories, environments and deployments.
 
 == General Commands
 
-help										# Display this message
-repo:create									# Create a repo. Follow on screen prompts for more info
-repo:list									# List current repositories
-repo:changes <repo_name>                    # List changes for a repository
-repo:releases <repo_name>                   # List releases for a repository
-repo:info <repo_name>                       # Display repository information
-account:config								# Change your account details (stored in .config file)
-repo:deploy <repo_name>						# Allows you to deploy a repository. Follow on screen prompts for more info
-repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
+help                            # Display this message
+repo:create                     # Create a repo. Follow on screen prompts for more info
+repo:list                       # List current repositories
+repo:changes <repo_name>        # List changes for a repository
+repo:releases <repo_name>       # List releases for a repository
+repo:info <repo_name>           # Display repository information
+account:config                  # Change your account details (stored in .config file)
+repo:deploy <repo_name>         # Allows you to deploy a repository. Follow on screen prompts for more info
+repo:deploy-all <repo_name>     # Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
 ";
 		
 		$string .= "\n";
