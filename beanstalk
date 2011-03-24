@@ -33,7 +33,7 @@ class Beanstalk
 		'repo:info',
 		'repo:changes',
 		'repo:releases',
-		'account:config'
+		'account:config',
 		'account:config',
 		'web:dashboard',
 		'web:repos',
