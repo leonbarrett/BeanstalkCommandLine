@@ -33,10 +33,10 @@ class Beanstalk
 		'repo:info',
 		'repo:changes',
 		'repo:releases',
-		'account:config'
 		'account:config',
 		'web:dashboard',
 		'web:repos',
+		'repo:init'
 	);
 	
 	//List of allowed Beanstalk colours (for repos, release servers etc)
@@ -138,7 +138,6 @@ class Beanstalk
 			break;
 			
 			case 'repo:create':
-				//self::create_repo($args);
 				self::create_repo_wizard($args);
 			break;
 			
@@ -180,10 +179,15 @@ class Beanstalk
 				self::fetch_releases($args);
 			break;
 			
+			case 'repo:init':
+				self::_display_message('ERROR', 'Hold tight, coming soon!');
+				//self::init_repo();
+			break;
+			
 			case 'account:config':
 				self::update_config();
 			break;
-					
+			
 			case 'web:dashboard':
 				self::open_url('');
 			break;
@@ -191,12 +195,22 @@ class Beanstalk
 			case 'web:repos':
 				self::open_url('repositories');
 			break;
+
 		}
 		
 		return TRUE;
 	} // End of init
 	
 // ------------------------------------------------------------------------
+	function init_repo(){
+		
+		$current_directory = getcwd();
+		
+		fwrite(STDOUT, "Set up Beanstalk repo in: '".$current_directory."'? y/n ");
+		$dir_confirm = trim(fgets(STDIN));
+		
+	}	
+	
 	function open_url($path){
 		
 		$url = 'https://'.$this->beanstalk_account.'.beanstalkapp.com/'.$path;
@@ -204,6 +218,7 @@ class Beanstalk
 		exec('open '.$url);
 		
 	}
+	
 	
 	function create_release($params,$mode){
 		
@@ -327,14 +342,17 @@ class Beanstalk
 			
 			case 'failed':
 				self::_display_message('', 'Deployment failed.');
+				self::_display_growl('Deployment Failed');
 			break;
 			
 			case 'success':
 				self::_display_message('', 'Deployed successfully.');
+				self::_display_growl('Deployment Finished');
 			break;
 			
 			case 'skipped':
 				self::_display_message('', 'Deployment skipped.');
+				self::_display_growl('Deployment Skipped');
 			break;
 		}
 	}
@@ -342,13 +360,7 @@ class Beanstalk
 	
 	function update_config(){
 		
-		fwrite(STDOUT, 'Are you sure you wish to update your settings? y/n: ');
-		$confirmation = strtolower(trim(fgets(STDIN)));
-		
-		if($confirmation == "n"){
-			self::_display_message('', 'Update cancelled');
-			exit();
-		}
+		fwrite(STDOUT, 'Please enter your Beanstalk account details to continue?');
 		
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
 		
@@ -732,6 +744,7 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 		$_message .= "\n";
 		
 		fwrite(STDOUT, $_message);
+		
 		unset($_label, $_message, $message);
 		
 		if ($type == 'error' && $continue === FALSE)
@@ -739,6 +752,16 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 		else
 			return;
 	} // End of _display_message
+	
+	protected static function _display_growl($message='',$title='Beanstalk CLI'){
+		
+		$image_path = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk'.DIRECTORY_SEPARATOR.'beanstalk.png';
+		
+		exec("growlnotify --image '".$image_path."' --message '".$message."' --title '".$title."'");
+		
+		exit();
+		
+	}
 	
 	public function display_errors($call){
 		
