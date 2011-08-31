@@ -36,6 +36,7 @@ class Beanstalk
 		'account:config',
 		'web:dashboard',
 		'web:repos',
+		'web:preview',
 		'repo:init'
 	);
 	
@@ -103,6 +104,8 @@ class Beanstalk
 				$this->beanstalk_account = $config['account_settings']['account'];
 				$this->beanstalk_username = $config['account_settings']['username'];
 				$this->beanstalk_password = $config['account_settings']['password'];
+				$this->staging_settings = $config['staging_settings'];
+				
 			else:				
 				$this->update_config();
 		endif;
@@ -195,6 +198,14 @@ class Beanstalk
 			case 'web:repos':
 				self::open_url('repositories');
 			break;
+			
+			case 'web:preview':
+				self::web_preview($args);
+			break;
+			
+			case 'staging':
+				var_dump($this->staging_settings);
+			break;
 
 		}
 		
@@ -219,6 +230,32 @@ class Beanstalk
 		
 	}
 	
+	function web_preview($params){
+		
+		self::_display_message('', '******************** WEB PREVIEW ********************');
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name/ID: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}
+		
+		self::_display_message('', 'Please enter the path for a file to preview in '.$repo_name.':');
+		
+		$file_path = trim(fgets(STDIN));
+		
+		self::_display_message('', 'Please enter a revision for this file (optional, if left blank will fetch latest):');
+		
+		$file_rev = trim(fgets(STDIN));
+		
+		$path = $repo_name.'/previews/'.$file_path.'?rev='.$file_rev;
+		
+		self::_display_message('',$path);
+		
+		self::open_url($path);
+		
+	}
 	
 	function create_release($params,$mode){
 		
