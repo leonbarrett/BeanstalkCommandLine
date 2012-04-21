@@ -106,7 +106,6 @@ class Beanstalk
 				$this->beanstalk_account = $config['account_settings']['account'];
 				$this->beanstalk_username = $config['account_settings']['username'];
 				$this->beanstalk_password = $config['account_settings']['password'];
-				$this->staging_settings = $config['staging_settings'];
 				
 			else:				
 				$this->update_config();
@@ -148,12 +147,10 @@ class Beanstalk
 			
 			case 'create-git':
 				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
-				//self::create_git_repo($args);
 			break;
 			
 			case 'create-empty':
 				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
-				//self::create_empty_repo($args);
 			break;
 			
 			case 'repo:deploy':
@@ -185,8 +182,8 @@ class Beanstalk
 			break;
 			
 			case 'repo:init':
-				self::_display_message('ERROR', 'Hold tight, coming soon!');
-				//self::init_repo();
+				//self::_display_message('ERROR', 'Hold tight, coming soon!');
+				self::init_repo();
 			break;
 			
 			case 'account:config':
@@ -357,6 +354,14 @@ class Beanstalk
 		
 	}
 	
+	
+	/**
+	 * web_preview function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
 	function web_preview($params){
 		
 		self::_display_message('', '******************** WEB PREVIEW ********************');
@@ -384,6 +389,15 @@ class Beanstalk
 		
 	}
 	
+	
+	/**
+	 * create_release function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @param mixed $mode
+	 * @return void
+	 */
 	function create_release($params,$mode){
 		
 		self::_display_message('', '******************** DEPLOY REPO ********************');
@@ -477,6 +491,15 @@ class Beanstalk
 		
 	}
 	
+	/**
+	 * check_status function.
+	 * 
+	 * @access public
+	 * @param mixed $status
+	 * @param mixed $id
+	 * @param mixed $repo
+	 * @return void
+	 */
 	function check_status($status,$id,$repo){
 		
 		switch($status){
@@ -522,6 +545,12 @@ class Beanstalk
 	}
 	
 	
+	/**
+	 * update_config function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
 	function update_config(){
 		
 		fwrite(STDOUT, 'Please enter your Beanstalk account details to continue?');
@@ -545,6 +574,14 @@ class Beanstalk
 		
 	}
 	
+	
+	/**
+	 * fetch_changes function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
 	function fetch_changes($params){
 		
 		self::_display_message('', '******************** REPO CHANGES ********************');
@@ -575,6 +612,14 @@ class Beanstalk
 		self::_display_message('', '********************');
 	}
 	
+	
+	/**
+	 * fetch_releases function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
 	function fetch_releases($params){
 		
 		self::_display_message('', '******************** REPO RELEASES ********************');
@@ -607,6 +652,14 @@ class Beanstalk
 		self::_display_message('', '********************');
 	}
 	
+	
+	/**
+	 * fetch_repo function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
 	function fetch_repo($params){
 		
 		self::_display_message('', '******************** REPO INFO ********************');
@@ -858,12 +911,15 @@ This is a command line tool to control Beanstalk (http://beanstalkapp.com/) repo
 help										# Display this message
 repo:create									# Create a repo. Follow on screen prompts for more info
 repo:list									# List current repositories
-repo:changes <repo_name>                    # List changes for a repository
-repo:releases <repo_name>                   # List releases for a repository
-repo:info <repo_name>                       # Display repository information
+repo:changes <repo_name>					# List changes for a repository
+repo:releases <repo_name>					# List releases for a repository
+repo:info <repo_name>						# Display repository information
 account:config								# Change your account details (stored in .config file)
 repo:deploy <repo_name>						# Allows you to deploy a repository. Follow on screen prompts for more info
 repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
+
+keys:list									# Lists your public keys
+keys:create									# Creates a new public key
 ";
 		
 		$string .= "\n";
@@ -917,6 +973,16 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 			return;
 	} // End of _display_message
 	
+	
+	/**
+	 * _display_growl function.
+	 * 
+	 * @access protected
+	 * @static
+	 * @param string $message (default: '')
+	 * @param string $title (default: 'Beanstalk CLI')
+	 * @return void
+	 */
 	protected static function _display_growl($message='',$title='Beanstalk CLI'){
 		
 		$image_path = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk'.DIRECTORY_SEPARATOR.'beanstalk.png';
@@ -927,6 +993,28 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 		
 	}
 	
+	
+	/**
+	 * _get_input function.
+	 * 
+	 * @access protected
+	 * @static
+	 * @return void
+	 */
+	protected static function _get_input(){
+	
+		return trim(fgets(STDIN));
+	
+	}
+	
+	
+	/**
+	 * display_errors function.
+	 * 
+	 * @access public
+	 * @param mixed $call
+	 * @return void
+	 */
 	public function display_errors($call){
 		
 		if($call->error){
