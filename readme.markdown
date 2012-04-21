@@ -53,6 +53,10 @@ Methods
 
 `$beanstalk account:config` - will allow you to update your Beanstalk config details (passwords are stored as plain text!)
 
+`$beanstalk keys:view` - will allow you to view your SSH keys that have been added to Beanstalk
+
+`$beanstalk keys:create` - will allow you to add the Key on your machine to your Beanstalk account
+ 
 Notes
 =====
 
@@ -60,12 +64,8 @@ When passing in a repo name, this must be the name and not the title. Type `$bea
 
 If you plan on using the `$beanstalk repo:create <repo_name> <colour>` method to create a templated repo, and automatically create a Staging and Production server then you will need to open up the file and add in your server details. In the future these settings will be saved to a config file.
 
-Coming Soon
-===========
-
-Re-enabling the creation of Release Servers. This will be via a wizard similar to creating repos but will allow you to use default values (stored in a config file).
 
 Thanks
 =====
 
-Thanks to https://github.com/AzizLight/fire for inspiration (and code) to create the script!
+Thanks to https://github.com/AzizLight/fire for inspiration (and initial code) to create the script!
