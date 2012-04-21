@@ -37,7 +37,9 @@ class Beanstalk
 		'web:dashboard',
 		'web:repos',
 		'web:preview',
-		'repo:init'
+		'repo:init',
+		'keys:view',
+		'keys:create'
 	);
 	
 	//List of allowed Beanstalk colours (for repos, release servers etc)
@@ -203,9 +205,14 @@ class Beanstalk
 				self::web_preview($args);
 			break;
 			
-			case 'staging':
-				var_dump($this->staging_settings);
+			case 'keys:view':
+				self::keys_view();
 			break;
+			
+			case 'keys:create':
+				self::keys_create();
+			break;
+
 
 		}
 		
@@ -213,15 +220,135 @@ class Beanstalk
 	} // End of init
 	
 // ------------------------------------------------------------------------
+	
+	/**
+	 * keys_view function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	function keys_view(){
+		
+		self::_display_message('', '******************** KEYS ********************');
+		
+		$keys = self::make_api_call('public_keys.xml');
+		
+		foreach($keys as $key){
+						
+			self::_display_message('', '** '.$key->name.' **');
+			
+			self::_display_message('', $key->content);
+			
+			self::_display_message('', 'Created on: '.date('D, jS F Y',strtotime($key->{'created-at'})));
+			
+		}
+	
+	}
+	
+	
+	/**
+	 * keys_create function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	function keys_create(){
+		
+		self::_display_message('', '******************** CREATE KEY ********************');
+		
+		$keyname = gethostname();
+		
+		self::_display_message('', 'Do you want to use your hostname ('.$keyname.')? y/n');
+		
+		$response = self::_get_input();
+		
+		if($response == 'n' || $response == 'no'){
+			
+			self::_display_message('', 'Please enter a keyname: ');
+			
+			$keyname = self::_get_input();
+		
+		}
+		
+		$filename = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'.ssh'.DIRECTORY_SEPARATOR.'id_rsa.pub';
+		
+		self::_display_message('', 'Looking for key in: '.$filename);	
+		
+		$handle = fopen($filename, "r");
+		$keycontent = fread($handle, filesize($filename));
+		fclose($handle);
+		
+		if(!$keycontent){
+		
+			self::_display_message('', 'Couldn\'t find a file in: '.$filename.'. Please paste your key: ');
+			
+			$keycontent = self::_get_input();
+		
+		}
+		
+		$post_string = '<public_key>
+						  <name>'.$keyname.'</name>
+						  <content>'.$keycontent.'</content>
+						</public_key>';
+		
+		self::_display_message('','Creating key, please wait.');	
+		
+		$new_key = self::make_api_post_call('public_keys.xml',$post_string);
+		
+		self::display_errors($new_key);
+		
+		self::_display_message('','Key created');
+					
+	}
+	
+	
+	/**
+	 * init_repo function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
 	function init_repo(){
 		
 		$current_directory = getcwd();
 		
-		fwrite(STDOUT, "Set up Beanstalk repo in: '".$current_directory."'? y/n ");
+		fwrite(STDOUT, "Set up Beanstalk repo config in: '".$current_directory."'? y/n ");
 		$dir_confirm = trim(fgets(STDIN));
+		
+		$dir_confirm = strtolower($dir_confirm);
+		
+		if($dir_confirm == 'y' || $dir_confirm == 'yes'){
+			
+			fwrite(STDOUT, 'Please enter the repo name exactly as it appears in Beanstalk? ');
+			$repo_name = trim(fgets(STDIN));	
+			
+			fwrite(STDOUT, 'Please enter the URL for the staging domain (optional)? ');
+			$staging_url = trim(fgets(STDIN));
+			
+			fwrite(STDOUT, 'Please enter the URL for the production domain (optional)? ');
+			$production_url = trim(fgets(STDIN));
+					
+			
+			$config_file = $current_directory.DIRECTORY_SEPARATOR.'beanstalk_cli.config';		
+			
+			$config_file_details = "repo = ".$repo_name;
+			
+			$fp = fopen($config_file, 'w+');
+			fwrite($fp, $config_file_details);
+			fclose($fp);			
+			
+		}
 		
 	}	
 	
+	
+	/**
+	 * open_url function.
+	 * 
+	 * @access public
+	 * @param mixed $path
+	 * @return void
+	 */
 	function open_url($path){
 		
 		$url = 'https://'.$this->beanstalk_account.'.beanstalkapp.com/'.$path;
