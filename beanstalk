@@ -11,16 +11,41 @@ date_default_timezone_set('Europe/London');
 class Beanstalk
 {
 		
-	//Beanstalk account name
+	
+	/**
+	 * beanstalk_account
+	 * 
+	 * @var mixed
+	 * @access private
+	 */
 	private $beanstalk_account;
 	
-	//Beanstalk user name
+	
+	/**
+	 * beanstalk_username
+	 * 
+	 * @var mixed
+	 * @access private
+	 */
 	private $beanstalk_username;
 	
-	//Beanstalk password
+	
+	/**
+	 * beanstalk_password
+	 * 
+	 * @var mixed
+	 * @access private
+	 */
 	private $beanstalk_password;
 	
-	//List of allowed function names
+	
+	/**
+	 * _valid_cli_params
+	 * 
+	 * @var mixed
+	 * @access private
+	 * @static
+	 */
 	private static $_valid_cli_params = array(
 		'repo',
 		'repo:create',
@@ -42,7 +67,14 @@ class Beanstalk
 		'keys:create'
 	);
 	
-	//List of allowed Beanstalk colours (for repos, release servers etc)
+	
+	/**
+	 * _valid_beanstalk_colours
+	 * 
+	 * @var mixed
+	 * @access private
+	 * @static
+	 */
 	private static $_valid_beanstalk_colours = array(
 		'red',
 		'orange',
@@ -53,13 +85,28 @@ class Beanstalk
 		'grey',
 	);
 	
-	//List of allowed Beanstalk repo types
+	
+	/**
+	 * _valid_beanstalk_repo_types
+	 * 
+	 * @var mixed
+	 * @access private
+	 * @static
+	 */
 	private static $_valid_beanstalk_repo_types = array(
 		'svn',
 		'git',
 	);
 	
-	//  Colour 
+
+	/**
+	 * colourOutput function.
+	 * 
+	 * @access public
+	 * @param mixed $text
+	 * @param mixed $status
+	 * @return void
+	 */
 	public function colourOutput($text, $status) {
 	$out = "";
 	switch($status) {
@@ -88,7 +135,6 @@ class Beanstalk
 	return chr(27) . "$out" . "$text" . chr(27) . "[0m";
 	}
 	
-// ------------------------------------------------------------------------
 	
 	/**
 	 * The Constructor!
@@ -114,7 +160,6 @@ class Beanstalk
 			
 	} // End of __construct
 	
-// ------------------------------------------------------------------------
 	
 	/**
 	 * Checks that the 1st parameter matches a set array, and then calls a function if so
@@ -216,7 +261,6 @@ class Beanstalk
 		return TRUE;
 	} // End of init
 	
-// ------------------------------------------------------------------------
 	
 	/**
 	 * keys_view function.
@@ -706,6 +750,7 @@ class Beanstalk
 		self::_display_message('', '********************');
 		
 	}
+
 	
 	/**
 	 * Lists repos for the current account
@@ -759,8 +804,7 @@ class Beanstalk
 	 * @static
 	 * @return void
 	 * @author Leon Barrett
-	 */
-	 
+	 */	 
 	public function create_repo_wizard($params){
 		
 		self::_display_message('', '******************** CREATE REPO ********************');
@@ -888,9 +932,7 @@ class Beanstalk
 		
 	} 
 	
-		
-// ------------------------------------------------------------------------
-	
+			
 	/**
 	 * Displays help for the end user
 	 *
@@ -928,7 +970,6 @@ keys:create									# Creates a new public key
 		exit();
 	} // End of help
 	
-// ------------------------------------------------------------------------
 	
 	/**
 	 * Display a message. If it's an error message, also terminate
@@ -1054,6 +1095,7 @@ keys:create									# Creates a new public key
 		return $clean;
 	}
 	
+	
 	/**
 	 * Makes a standard API call
 	 *
@@ -1090,6 +1132,7 @@ keys:create									# Creates a new public key
 		return $xml;
 		
 	}
+	
 	
 	/**
 	 * Makes a write API call
@@ -1137,13 +1180,11 @@ keys:create									# Creates a new public key
 	}
 	
 	
-} // End of Beanstalk class
+}
 
-// -Query-Validation-------------------------------------------------------
 try {
 	$beanstalk = new Beanstalk();
 	$beanstalk->init($argv);
 } catch (Exception $e) {
 	exit('ERROR: ' . $e->getMessage() . "\n");
 }
-// ------------------------------------------------------------------------
