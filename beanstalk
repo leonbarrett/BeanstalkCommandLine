@@ -959,8 +959,7 @@ repo:info <repo_name>						# Display repository information
 account:config								# Change your account details (stored in .config file)
 repo:deploy <repo_name>						# Allows you to deploy a repository. Follow on screen prompts for more info
 repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a repository. Follow on screen prompts for more info
-
-keys:list									# Lists your public keys
+keys:view									# Lists your public keys
 keys:create									# Creates a new public key
 ";
 		
