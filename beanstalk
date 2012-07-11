@@ -55,6 +55,7 @@ class Beanstalk
 		'repo:deployall',
 		'help',
 		'repo:list',
+		'repo:search',
 		'repo:info',
 		'repo:changes',
 		'repo:releases',
@@ -226,6 +227,10 @@ class Beanstalk
 				self::fetch_releases($args);
 			break;
 			
+			case 'repo:search':
+				self::search_repos($args);
+			break;
+			
 			case 'repo:init':
 				//self::_display_message('ERROR', 'Hold tight, coming soon!');
 				self::init_repo();
@@ -340,6 +345,75 @@ class Beanstalk
 		
 		self::_display_message('','Key created');
 					
+	}
+	
+	
+	/**
+	 * search_repos function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
+	function search_repos($params){
+		
+		self::_display_message('', '******************** SEARCH REPOS ********************');
+		
+		if($params[2] == ''){
+			fwrite(STDOUT, "Please enter a repository name/ID: ");
+			$repo_name = trim(fgets(STDIN));
+		}else{
+			$repo_name = $params[2];
+		}		
+		
+		self::_display_message('','******************** Searching for: '.$repo_name.' ********************');
+		
+		$repos = self::make_api_call('repositories.xml');
+		
+		self::display_errors($repos);
+		
+		$found_repos = 0;
+		
+		if(count($repos->repository)>0):
+						
+			foreach($repos->repository as $repo):
+				
+				$pos = strpos(strtolower($repo->name), strtolower($repo_name));
+			
+				if ($pos !== false) {
+					
+					$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
+					$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';				
+					$_message .= $repo->title;
+					$_message .= ' ('.$repo->name.') ';
+					if ($type == 'SVN') { 
+						$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
+					} else {
+						$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
+					}
+					$_message .= "\n";
+						
+					fwrite(STDOUT, $_message);
+					
+					
+					 $found_repos++;
+				}						
+				
+				
+			endforeach;
+			
+		else:
+		
+			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
+			
+		endif;
+		
+		self::_display_message('','******************** Found ('.$found_repos.') repos matching your search term ********************');
+		
+		self::_display_message('', '********************');
+		
+		
+		
 	}
 	
 	
@@ -1081,6 +1155,7 @@ keys:create									# Creates a new public key
 		
 	}
 	
+		
 	/**
 	 * Creates a slug for the repo name
 	 *

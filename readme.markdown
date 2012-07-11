@@ -41,6 +41,8 @@ Methods
 
 `$beanstalk repo:list` - return a list of repos
 
+`$beanstalk repo:search <repo_name>` - search for a repo
+
 `$beanstalk repo:changes <repo_name>` - will list the most recent changes, grouped by date then ordered by time, with the revision and author
 
 `$beanstalk repo:releases <repo_name>` - will list the most recent releases, grouped by date then ordered by time, with the revision and author
