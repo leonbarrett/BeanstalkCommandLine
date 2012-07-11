@@ -460,41 +460,53 @@ class Beanstalk
 		self::display_errors($envs);
 		
 		self::_display_message('', 'Repo name: '.$repo->name);
-		self::_display_message('', 'Revision: '.$repo->revision);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
+		
+		$found_envs = array();
+		
+		$i = 0;
 		
 		if(count($envs) > 0):
 		
 			self::_display_message('', 'Release Environments: ('.count($envs).')');
 		
 			foreach($envs as $env):
-				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
+				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.') - type '.$i);
+				$found_envs[] = array('id'=>$env->id,'name'=>$env->name,'version'=>$env->{'current-version'});
+				$i++;
 			endforeach;
 		else:
 			self::_display_message('error', 'This repo does not contain any release environments');
 		endif;
 		
-		fwrite(STDOUT, "Please enter an Environment name to deploy: ");
-		$env_name = trim(fgets(STDIN));
+		fwrite(STDOUT, "Please enter an Environment to deploy (type the number only): ");
+		$input_id = trim(fgets(STDIN));
 		
 		$repo_id = $repo->id;
 		
-		$env = self::make_api_call($repo_id.'/server_environments/'.$env_name.'.xml');
+		$env_name = $found_envs[$input_id]['name'];
+		$env_id = $found_envs[$input_id]['id'];
+		$env_rev = $found_envs[$input_id]['version'];
+
+		
+		$env = self::make_api_call($repo_id.'/server_environments/'.$env_id.'.xml');
 		
 		self::display_errors($env);
 		
 		if(!$env) self::_display_message('error', 'No environment found matching '.$env_name.'. Please try again');
 		
-		$env_id = $env->id;
+		
+		$deploy_id = $env->id;
+		
 		
 		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to deploy the latest revision: ");
 		$rev_number = trim(fgets(STDIN));
 		
 		$confirmation_string = '';	
-		
+				
 		if($rev_number == ''){
-			$confirmation_string = "You are about to deploy Revision ".$repo->revision." to ".$env_name.", are you sure you want to continue? y/n: ";
-			$rev_number = $repo->revision;
+			$confirmation_string = "You are about to deploy Revision ".$env_rev." to ".$env_name.", are you sure you want to continue? y/n: ";
+			$rev_number = '';
 		}else{
 			$confirmation_string = "You are about to deploy Revision ".$rev_number." to ".$env_name.", are you sure you want to continue? y/n: ";
 		}
@@ -527,7 +539,7 @@ class Beanstalk
 				
 		
 		
-		$release = self::make_api_post_call($repo_name.'/releases.xml?environment_id='.$env_id,$post_string);
+		$release = self::make_api_post_call($repo_name.'/releases.xml?environment_id='.$deploy_id,$post_string);
 		
 		self::display_errors($release);
 		
@@ -573,17 +585,17 @@ class Beanstalk
 			
 			case 'failed':
 				self::_display_message('', 'Deployment failed.');
-				self::_display_growl('Deployment Failed');
+				//self::_display_growl('Deployment Failed');
 			break;
 			
 			case 'success':
 				self::_display_message('', 'Deployed successfully.');
-				self::_display_growl('Deployment Finished');
+				//self::_display_growl('Deployment Finished');
 			break;
 			
 			case 'skipped':
 				self::_display_message('', 'Deployment skipped.');
-				self::_display_growl('Deployment Skipped');
+				//self::_display_growl('Deployment Skipped');
 			break;
 		}
 	}
