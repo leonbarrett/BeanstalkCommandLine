@@ -79,10 +79,7 @@ These are global parameters that will work across the methods:
 Notes
 =====
 
-When passing in a repo name, this must be the name and not the title. Type `$beanstalk list` to see a list of repos (the names are within brackets).
-
-If you plan on using the `$beanstalk repo:create <repo_name> <colour>` method to create a templated repo, and automatically create a Staging and Production server then you will need to open up the file and add in your server details. In the future these settings will be saved to a config file.
-
+When passing in a repo name, this must be the name and not the title. Type `$beanstalk -m repo:list` to see a list of repos (the names are within brackets).
 
 Thanks
 =====
