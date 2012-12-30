@@ -10,38 +10,38 @@ date_default_timezone_set('Europe/London');
 */
 class Beanstalk
 {
-		
-	
+
+
 	/**
 	 * beanstalk_account
-	 * 
+	 *
 	 * @var mixed
 	 * @access private
 	 */
 	private $beanstalk_account;
-	
-	
+
+
 	/**
 	 * beanstalk_username
-	 * 
+	 *
 	 * @var mixed
 	 * @access private
 	 */
 	private $beanstalk_username;
-	
-	
+
+
 	/**
 	 * beanstalk_password
-	 * 
+	 *
 	 * @var mixed
 	 * @access private
 	 */
 	private $beanstalk_password;
-	
-	
+
+
 	/**
 	 * _valid_cli_params
-	 * 
+	 *
 	 * @var mixed
 	 * @access private
 	 * @static
@@ -67,11 +67,11 @@ class Beanstalk
 		'keys:view',
 		'keys:create'
 	);
-	
-	
+
+
 	/**
 	 * _valid_beanstalk_colours
-	 * 
+	 *
 	 * @var mixed
 	 * @access private
 	 * @static
@@ -85,11 +85,11 @@ class Beanstalk
 		'pink',
 		'grey',
 	);
-	
-	
+
+
 	/**
 	 * _valid_beanstalk_repo_types
-	 * 
+	 *
 	 * @var mixed
 	 * @access private
 	 * @static
@@ -98,11 +98,11 @@ class Beanstalk
 		'svn',
 		'git',
 	);
-	
+
 
 	/**
 	 * colourOutput function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $text
 	 * @param mixed $status
@@ -116,9 +116,9 @@ class Beanstalk
 		break;
 		case "label-orange":
 		$out = "[0;31m";
-		break;		
+		break;
 		case "label-yellow":
-		$out = "[0;33m"; 
+		$out = "[0;33m";
 		break;
 		case "label-green":
 		$out = "[0;32m";
@@ -131,12 +131,12 @@ class Beanstalk
 		break;
 		case "label-grey":
 		$out = "[0;37m";
-		break;			
+		break;
 	}
 	return chr(27) . "$out" . "$text" . chr(27) . "[0m";
 	}
-	
-	
+
+
 	/**
 	 * The Constructor!
 	 *
@@ -153,15 +153,15 @@ class Beanstalk
 				$this->beanstalk_account = $config['account_settings']['account'];
 				$this->beanstalk_username = $config['account_settings']['username'];
 				$this->beanstalk_password = $config['account_settings']['password'];
-				
-			else:				
+
+			else:
 				$this->update_config();
 		endif;
-	
-			
+
+
 	} // End of __construct
-	
-	
+
+
 	/**
 	 * Checks that the 1st parameter matches a set array, and then calls a function if so
 	 * Will throw an error if function is not defined
@@ -177,373 +177,373 @@ class Beanstalk
 		// First thing to do is to verify that the first parameter is a valid keyword!
 		if (!in_array($args[1], self::$_valid_cli_params))
 			throw new Exception($args[1] . ' is not a valid type! Type beanstalk help for instructions on how to use this script!');
-		
+
 		//Call required function based on user input
 		$action = $args[1];
-		
+
 		switch($action){
-			
+
 			case 'repo':
 				self::_display_message('ERROR', 'Method depreciated. Please type beanstalk help for more info');
 			break;
-			
+
 			case 'repo:create':
 				self::create_repo_wizard($args);
 			break;
-			
+
 			case 'create-git':
 				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
 			break;
-			
+
 			case 'create-empty':
 				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
 			break;
-			
+
 			case 'repo:deploy':
 				self::create_release($args,'single');
 			break;
-			
+
 			case 'repo:deployall':
 				self::create_release($args,'all');
 			break;
-			
+
 			case 'repo:list':
 				self::list_repos();
 			break;
-			
+
 			case 'help':
 				self::help();
 			break;
-			
+
 			case 'repo:info':
 				self::fetch_repo($args);
 			break;
-			
+
 			case 'repo:changes':
 				self::fetch_changes($args);
 			break;
-			
+
 			case 'repo:releases':
 				self::fetch_releases($args);
 			break;
-			
+
 			case 'repo:search':
 				self::search_repos($args);
 			break;
-			
+
 			case 'repo:init':
 				//self::_display_message('ERROR', 'Hold tight, coming soon!');
 				self::init_repo();
 			break;
-			
+
 			case 'account:config':
 				self::update_config();
 			break;
-			
+
 			case 'web:dashboard':
 				self::open_url('');
 			break;
-			
+
 			case 'web:repos':
 				self::open_url('repositories');
 			break;
-			
+
 			case 'web:preview':
 				self::web_preview($args);
 			break;
-			
+
 			case 'keys:view':
 				self::keys_view();
 			break;
-			
+
 			case 'keys:create':
 				self::keys_create();
 			break;
 
 
 		}
-		
+
 		return TRUE;
 	} // End of init
-	
-	
+
+
 	/**
 	 * keys_view function.
-	 * 
+	 *
 	 * @access public
 	 * @return void
 	 */
 	function keys_view(){
-		
+
 		self::_display_message('', '******************** KEYS ********************');
-		
+
 		$keys = self::make_api_call('public_keys.xml');
-		
+
 		foreach($keys as $key){
-						
+
 			self::_display_message('', '** '.$key->name.' **');
-			
+
 			self::_display_message('', $key->content);
-			
+
 			self::_display_message('', 'Created on: '.date('D, jS F Y',strtotime($key->{'created-at'})));
-			
+
 		}
-	
+
 	}
-	
-	
+
+
 	/**
 	 * keys_create function.
-	 * 
+	 *
 	 * @access public
 	 * @return void
 	 */
 	function keys_create(){
-		
+
 		self::_display_message('', '******************** CREATE KEY ********************');
-		
+
 		$keyname = gethostname();
-		
+
 		self::_display_message('', 'Do you want to use your hostname ('.$keyname.')? y/n');
-		
+
 		$response = self::_get_input();
-		
+
 		if($response == 'n' || $response == 'no'){
-			
+
 			self::_display_message('', 'Please enter a keyname: ');
-			
+
 			$keyname = self::_get_input();
-		
+
 		}
-		
+
 		$filename = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'.ssh'.DIRECTORY_SEPARATOR.'id_rsa.pub';
-		
-		self::_display_message('', 'Looking for key in: '.$filename);	
-		
+
+		self::_display_message('', 'Looking for key in: '.$filename);
+
 		$handle = fopen($filename, "r");
 		$keycontent = fread($handle, filesize($filename));
 		fclose($handle);
-		
+
 		if(!$keycontent){
-		
+
 			self::_display_message('', 'Couldn\'t find a file in: '.$filename.'. Please paste your key: ');
-			
+
 			$keycontent = self::_get_input();
-		
+
 		}
-		
+
 		$post_string = '<public_key>
 						  <name>'.$keyname.'</name>
 						  <content>'.$keycontent.'</content>
 						</public_key>';
-		
-		self::_display_message('','Creating key, please wait.');	
-		
+
+		self::_display_message('','Creating key, please wait.');
+
 		$new_key = self::make_api_post_call('public_keys.xml',$post_string);
-		
+
 		self::display_errors($new_key);
-		
+
 		self::_display_message('','Key created');
-					
+
 	}
-	
-	
+
+
 	/**
 	 * search_repos function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
 	function search_repos($params){
-		
+
 		self::_display_message('', '******************** SEARCH REPOS ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name/ID: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
-		}		
-		
+		}
+
 		self::_display_message('','******************** Searching for: '.$repo_name.' ********************');
-		
+
 		$repos = self::make_api_call('repositories.xml');
-		
+
 		self::display_errors($repos);
-		
+
 		$found_repos = 0;
-		
+
 		if(count($repos->repository)>0):
-						
+
 			foreach($repos->repository as $repo):
-				
+
 				$pos = strpos(strtolower($repo->name), strtolower($repo_name));
-			
+
 				if ($pos !== false) {
-					
+
 					$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-					$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';				
+					$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';
 					$_message .= $repo->title;
 					$_message .= ' ('.$repo->name.') ';
-					if ($type == 'SVN') { 
+					if ($type == 'SVN') {
 						$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 					} else {
-						$_message .=' - git@'.$this->beanstalk_account.'beanstalkapp.com:/'.$repo->name.'.git';
+						$_message .=' - git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo->name.'.git';
 					}
 					$_message .= "\n";
-						
+
 					fwrite(STDOUT, $_message);
-					
-					
+
+
 					 $found_repos++;
-				}						
-				
-				
+				}
+
+
 			endforeach;
-			
+
 		else:
-		
+
 			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
-			
+
 		endif;
-		
+
 		self::_display_message('','******************** Found ('.$found_repos.') repos matching your search term ********************');
-		
+
 		self::_display_message('', '********************');
-		
-		
-		
+
+
+
 	}
-	
-	
+
+
 	/**
 	 * init_repo function.
-	 * 
+	 *
 	 * @access public
 	 * @return void
 	 */
 	function init_repo(){
-		
+
 		$current_directory = getcwd();
-		
+
 		fwrite(STDOUT, "Set up Beanstalk repo config in: '".$current_directory."'? y/n ");
 		$dir_confirm = trim(fgets(STDIN));
-		
+
 		$dir_confirm = strtolower($dir_confirm);
-		
+
 		if($dir_confirm == 'y' || $dir_confirm == 'yes'){
-			
+
 			fwrite(STDOUT, 'Please enter the repo name exactly as it appears in Beanstalk? ');
-			$repo_name = trim(fgets(STDIN));	
-			
+			$repo_name = trim(fgets(STDIN));
+
 			fwrite(STDOUT, 'Please enter the URL for the staging domain (optional)? ');
 			$staging_url = trim(fgets(STDIN));
-			
+
 			fwrite(STDOUT, 'Please enter the URL for the production domain (optional)? ');
 			$production_url = trim(fgets(STDIN));
-					
-			
-			$config_file = $current_directory.DIRECTORY_SEPARATOR.'beanstalk_cli.config';		
-			
+
+
+			$config_file = $current_directory.DIRECTORY_SEPARATOR.'beanstalk_cli.config';
+
 			$config_file_details = "repo = ".$repo_name;
-			
+
 			$fp = fopen($config_file, 'w+');
 			fwrite($fp, $config_file_details);
-			fclose($fp);			
-			
+			fclose($fp);
+
 		}
-		
-	}	
-	
-	
+
+	}
+
+
 	/**
 	 * open_url function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $path
 	 * @return void
 	 */
 	function open_url($path){
-		
+
 		$url = 'https://'.$this->beanstalk_account.'.beanstalkapp.com/'.$path;
-		
+
 		exec('open '.$url);
-		
+
 	}
-	
-	
+
+
 	/**
 	 * web_preview function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
 	function web_preview($params){
-		
+
 		self::_display_message('', '******************** WEB PREVIEW ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name/ID: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
 		}
-		
+
 		self::_display_message('', 'Please enter the path for a file to preview in '.$repo_name.':');
-		
+
 		$file_path = trim(fgets(STDIN));
-		
+
 		self::_display_message('', 'Please enter a revision for this file (optional, if left blank will fetch latest):');
-		
+
 		$file_rev = trim(fgets(STDIN));
-		
+
 		$path = $repo_name.'/previews/'.$file_path.'?rev='.$file_rev;
-		
+
 		self::_display_message('',$path);
-		
+
 		self::open_url($path);
-		
+
 	}
-	
-	
+
+
 	/**
 	 * create_release function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $params
 	 * @param mixed $mode
 	 * @return void
 	 */
 	function create_release($params,$mode){
-		
+
 		self::_display_message('', '******************** DEPLOY REPO ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name/ID: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
 		}
-		
+
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
 		$envs = self::make_api_call($repo_name.'/server_environments.xml');
-		
+
 		self::display_errors($repo);
 		self::display_errors($envs);
-		
+
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
-		
+
 		$found_envs = array();
-		
+
 		$i = 0;
-		
+
 		if(count($envs) > 0):
-		
+
 			self::_display_message('', 'Release Environments: ('.count($envs).')');
-		
+
 			foreach($envs as $env):
 				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.') - type '.$i);
 				$found_envs[] = array('id'=>$env->id,'name'=>$env->name,'version'=>$env->{'current-version'});
@@ -552,52 +552,52 @@ class Beanstalk
 		else:
 			self::_display_message('error', 'This repo does not contain any release environments');
 		endif;
-		
+
 		fwrite(STDOUT, "Please enter an Environment to deploy (type the number only): ");
 		$input_id = trim(fgets(STDIN));
-		
+
 		$repo_id = $repo->id;
-		
+
 		$env_name = $found_envs[$input_id]['name'];
 		$env_id = $found_envs[$input_id]['id'];
 		$env_rev = $found_envs[$input_id]['version'];
 
-		
+
 		$env = self::make_api_call($repo_id.'/server_environments/'.$env_id.'.xml');
-		
+
 		self::display_errors($env);
-		
+
 		if(!$env) self::_display_message('error', 'No environment found matching '.$env_name.'. Please try again');
-		
-		
+
+
 		$deploy_id = $env->id;
-		
-		
+
+
 		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to deploy the latest revision: ");
 		$rev_number = trim(fgets(STDIN));
-		
-		$confirmation_string = '';	
-				
+
+		$confirmation_string = '';
+
 		if($rev_number == ''){
 			$confirmation_string = "You are about to deploy Revision ".$env_rev." to ".$env_name.", are you sure you want to continue? y/n: ";
 			$rev_number = '';
 		}else{
 			$confirmation_string = "You are about to deploy Revision ".$rev_number." to ".$env_name.", are you sure you want to continue? y/n: ";
 		}
-		
+
 		fwrite(STDOUT, 'Please enter a release comment (optional): ');
 		$comment = strtolower(trim(fgets(STDIN)));
-		
+
 		fwrite(STDOUT, $confirmation_string);
 		$confirmation = strtolower(trim(fgets(STDIN)));
-		
+
 		if($confirmation == "n"){
 			self::_display_message('', 'Deployment cancelled');
 			exit();
 		}
-		
+
 		if($mode=='all'){
-			
+
 				$post_string = '<release>
 				  <deploy_from_scratch>true</deploy_from_scratch>
 				  <revision type="integer">'.$rev_number.'</revision>
@@ -608,22 +608,22 @@ class Beanstalk
 			  <revision type="integer">'.$rev_number.'</revision>
 			  <comment><![CDATA['.$comment.']]></comment>
 			</release>';
-			
+
 		}
-				
-		
-		
+
+
+
 		$release = self::make_api_post_call($repo_name.'/releases.xml?environment_id='.$deploy_id,$post_string);
-		
+
 		self::display_errors($release);
-		
+
 		self::check_status($release->state,$release->id,$repo_id);
-		
+
 	}
-	
+
 	/**
 	 * check_status function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $status
 	 * @param mixed $id
@@ -631,213 +631,213 @@ class Beanstalk
 	 * @return void
 	 */
 	function check_status($status,$id,$repo){
-		
+
 		switch($status){
-			
+
 			case 'pending':
-			
+
 				self::_display_message('', 'Deployment pending...');
-				
+
 				sleep(7);
-				
+
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
-				
+
 				self::check_status($release->state,$id,$repo);
-				
+
 			break;
-			
+
 			case 'waiting':
 				self::_display_message('', 'Deployment waiting...');
-				
+
 				sleep(7);
-				
+
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
-				
+
 				self::check_status($release->state,$id,$repo);
-				
+
 			break;
-			
+
 			case 'failed':
 				self::_display_message('', 'Deployment failed.');
 				//self::_display_growl('Deployment Failed');
 			break;
-			
+
 			case 'success':
 				self::_display_message('', 'Deployed successfully.');
 				//self::_display_growl('Deployment Finished');
 			break;
-			
+
 			case 'skipped':
 				self::_display_message('', 'Deployment skipped.');
 				//self::_display_growl('Deployment Skipped');
 			break;
 		}
 	}
-	
-	
+
+
 	/**
 	 * update_config function.
-	 * 
+	 *
 	 * @access public
 	 * @return void
 	 */
 	function update_config(){
-		
+
 		fwrite(STDOUT, 'Please enter your Beanstalk account details to continue?');
-		
+
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
-		
+
 		fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
 		$account_name = trim(fgets(STDIN));
-		
+
 		fwrite(STDOUT, "Please enter a Beanstalk User Name:");
 		$user_name = trim(fgets(STDIN));
-		
+
 		fwrite(STDOUT, "Please enter your Beanstalk Password:");
-		$password = trim(fgets(STDIN));				
-		
+		$password = trim(fgets(STDIN));
+
 		$config_file_details = "[account_settings]\naccount = ".$account_name."\nusername = ".$user_name."\npassword = ".$password;
-		
+
 		$fp = fopen($config_file, 'w+');
 		fwrite($fp, $config_file_details);
 		fclose($fp);
-		
+
 	}
-	
-	
+
+
 	/**
 	 * fetch_changes function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
 	function fetch_changes($params){
-		
+
 		self::_display_message('', '******************** REPO CHANGES ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name/ID: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
 		}
-				
+
 		$changeset = self::make_api_call('changesets/repository.xml?repository_id='.$repo_name);
-		
+
 		self::display_errors($changeset);
-		
+
 		$prev_date = date('d',strtotime($changeset->{'revision-cache'}[0]->time));
 		self::_display_message('', '*** '. date('dS M Y',strtotime($changeset->{'revision-cache'}[0]->time)).' ***');
-		
+
 		foreach($changeset->{'revision-cache'} as $change):
 		if(date('d',strtotime($change->time)) != $prev_date){
 		self::_display_message('', '*** '. date('dS M Y',strtotime($change->time)).' ***');
 		$prev_date = date('d',strtotime($change->time));
-		} 
-		
-		self::_display_message('',$change->message. '('.$change->revision.')'."\n".'by '.$change->author.' at '.date('H:i',strtotime($change->time)));			
+		}
+
+		self::_display_message('',$change->message. '('.$change->revision.')'."\n".'by '.$change->author.' at '.date('H:i',strtotime($change->time)));
 		endforeach;
-		
+
 		self::_display_message('', '********************');
 	}
-	
-	
+
+
 	/**
 	 * fetch_releases function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
 	function fetch_releases($params){
-		
+
 		self::_display_message('', '******************** REPO RELEASES ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name/ID: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
 		}
-				
+
 		$releases = self::make_api_call($repo_name.'/releases.xml');
-		
+
 		self::display_errors($releases);
-		
+
 		$prev_date = date('d',strtotime($releases->release[0]->{'updated-at'}));
 		self::_display_message('', '*** '. date('dS M Y',strtotime($releases->release[0]->{'updated-at'})).' ***');
-		
+
 		foreach($releases->release as $release):
 		if(date('d',strtotime($release->{'updated-at'})) != $prev_date){
 		self::_display_message('', '*** '. date('dS M Y',strtotime($release->{'updated-at'})).' ***');
 		$prev_date = date('d',strtotime($release->{'updated-at'}));
-		} 
-		
+		}
+
 		self::_display_message('',$release->{'environment-name'}. ' ('.$release->revision.') by '.$release->author.' at '.date('H:i',strtotime($release->{'updated-at'}))."\n".$release->comment."\n".$release->state );
 
-			
+
 		endforeach;
-		
+
 		self::_display_message('', '********************');
 	}
-	
-	
+
+
 	/**
 	 * fetch_repo function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
 	function fetch_repo($params){
-		
+
 		self::_display_message('', '******************** REPO INFO ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name/ID: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
 		}
-				
+
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
 		$envs = self::make_api_call($repo_name.'/server_environments.xml');
-		
-		
+
+
 		self::display_errors($repo);
 		self::display_errors($envs);
-		
+
 		if(!$repo) self::_display_message('error', 'No repo found matching: '.$repo_name);
-		
+
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Revision: '.$repo->revision);
 		$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
 		self::_display_message('', 'Type: '.$type);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
-		if ($type == 'SVN') { 
+		if ($type == 'SVN') {
 			$path ='https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 		} else {
-			$path ='git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
+			$path ='git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo->name.'.git';
 		}
-		
+
 		self::_display_message('', 'Path: '.$path);
-		
+
 		if(count($envs) > 0):
-		
+
 			self::_display_message('', 'Release Environments: ('.count($envs).')');
-		
+
 			foreach($envs as $env):
 				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
 			endforeach;
-		
+
 		endif;
-		
+
 		self::_display_message('', '********************');
-		
+
 	}
 
-	
+
 	/**
 	 * Lists repos for the current account
 	 *
@@ -847,42 +847,42 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public function list_repos(){
-				
+
 		self::_display_message('', '********************  REPOSITORIES FOR '.$this->beanstalk_account. '  ********************');
-		
+
 		$repos = self::make_api_call('repositories.xml');
-		
+
 		self::display_errors($repos);
-		
+
 		if(count($repos->repository)>0):
-						
+
 			foreach($repos->repository as $repo):
 				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';				
+				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';
 				$_message .= $repo->title;
 				$_message .= ' ('.$repo->name.') ';
-				if ($type == 'SVN') { 
+				if ($type == 'SVN') {
 					$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 				} else {
-					$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
+					$_message .=' - git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo->name.'.git';
 				}
 				$_message .= "\n";
-					
+
 				fwrite(STDOUT, $_message);
-				
+
 			endforeach;
-			
+
 		else:
-		
+
 			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
-			
+
 		endif;
-		
+
 		self::_display_message('', '********************');
-		
+
 	}
-	
-		
+
+
 	/**
 	 * Creates a repo. Wizard guides through settings
 	 *
@@ -890,135 +890,135 @@ class Beanstalk
 	 * @static
 	 * @return void
 	 * @author Leon Barrett
-	 */	 
+	 */
 	public function create_repo_wizard($params){
-		
+
 		self::_display_message('', '******************** CREATE REPO ********************');
-		
+
 		if($params[2] == ''){
 			fwrite(STDOUT, "Please enter a repository name: ");
 			$repo_name = trim(fgets(STDIN));
 		}else{
 			$repo_name = $params[2];
 		}
-		
+
 		//Get Repo Type and check
 		fwrite(STDOUT, "Enter repo type? svn/git: ");
 		$repo_type = trim(fgets(STDIN));
-		
+
 		if (!in_array($repo_type, self::$_valid_beanstalk_repo_types)){
 			fwrite(STDOUT, "Enter a valid repo type! svn/git : ");
 			$repo_type = trim(fgets(STDIN));
 		}
-		
-		
+
+
 		//Get Repo Colour
 		fwrite(STDOUT, "Enter repo colour label : ");
 		$repo_colour = trim(fgets(STDIN));
-		
+
 		if (!in_array($repo_colour, self::$_valid_beanstalk_colours)){
 			fwrite(STDOUT, "Enter a valid repo colour label : ");
 			$repo_colour = trim(fgets(STDIN));
 		}
-		
+
 		$title = self::_create_slug($repo_name);
-		
+
 		self::_display_message('notice', 'Starting to create '.$repo_name);
-		
-		
+
+
 		if($repo_type == 'git'){
-		
+
 			self::_display_message('', 'Starting to create '.$repo_name);
-			
+
 			$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 			<repository>
 			  <name>'.$title.'</name>
 			  <title>'.$repo_name.'</title>
 			  <color_label>label-'.$repo_colour.'</color_label>
 			  <type_id>git</type_id>
-			</repository>';		
-			
+			</repository>';
+
 			$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
-			
+
 			self::display_errors($create_empty_repo);
-	
+
 			self::_display_message('', 'Finished setting up GIT repo - '.$repo_name);
 			self::_display_message('', 'Git clone URL git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo_name.'.git');
-			
+
 			self::_display_message('', '********************');
-		
-		
+
+
 		}elseif($repo_type == 'svn'){
-		
+
 			$api_data = '<?xml version="1.0" encoding="UTF-8"?>
 			<repository>
 			  <name>'.$title.'</name>
 			  <title>'.$repo_name.'</title>
 			  <color_label>label-'.$repo_colour.'</color_label>
 			  <create_structure type="boolean">true</create_structure>
-			</repository>';		
-			
+			</repository>';
+
 			$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
-			
+
 			self::display_errors($create_empty_repo);
-			
+
 			self::_display_message('', 'Created '.$repo_name);
-			
+
 			fwrite(STDOUT, "Do you wish to create a Staging Environment? y/n: ");
 			$create_staging = trim(fgets(STDIN));
-			
+
 			if($create_staging == 'y'){
-				
+
 				self::_display_message('', 'Setting up Staging Environment for '.$repo_name);
-			
+
 				$new_repo_id = $create_empty_repo->id;
-				
+
 				$api_data = '<?xml version="1.0" encoding="UTF-8"?>
-				<server-environment>  
+				<server-environment>
 				  <name>Staging</name>
 				  <automatic>true</automatic>
 				  <color_label>label-grey</color_label>
 				</server-environment>';
-				
+
 				$create_staging_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
-				
+
 				self::display_errors($create_staging_env);
-		
+
 				self::_display_message('', 'Created Staging Environment');
-				
+
 			}
-			
+
 			fwrite(STDOUT, "Do you wish to create a Production Environment? y/n: ");
 			$create_production = trim(fgets(STDIN));
-			
+
 			if($create_production == 'y'){
-			
+
 				self::_display_message('', 'Setting up Production Environment for '.$repo_name);
-			
+
 				$api_data = '<?xml version="1.0" encoding="UTF-8"?>
-				<server-environment>  
+				<server-environment>
 				  <name>Production</name>
 				  <automatic>false</automatic>
 				  <color_label>label-green</color_label>
 				</server-environment>';
-				
+
 				$create_prod_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
-				
+
 				self::display_errors($create_prod_env);
-				
+
 				self::_display_message('', 'Created Production Environment');
 			}
-			
+
 			self::_display_message('', 'Finished setting up '.$repo_name);
-			self::_display_message('', 'Repo path:  https://'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);		
-		
+			self::_display_message('', 'Repo path:  https://'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
+
 			self::_display_message('', '********************');
-		
+
 		}
-		
-	} 
-	
-			
+
+	}
+
+
 	/**
 	 * Displays help for the end user
 	 *
@@ -1028,7 +1028,7 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public function help()
-	{	
+	{
 		$string = "\n";
 		$string .= "== Beanstalk
 
@@ -1048,14 +1048,14 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 keys:view									# Lists your public keys
 keys:create									# Creates a new public key
 ";
-		
+
 		$string .= "\n";
-		
+
 		fwrite(STDOUT, $string);
 		exit();
 	} // End of help
-	
-	
+
+
 	/**
 	 * Display a message. If it's an error message, also terminate
 	 * the execution of the script.
@@ -1074,35 +1074,35 @@ keys:create									# Creates a new public key
 			$type = 'error';
 			$message = 'You tried to display a message but didn\'t provide the message...';
 		}
-		
+
 		$_message_type = array(
 			'error', 'warning', 'notice',
 		);
-		
+
 		$_label = '';
 		if (in_array($type, $_message_type))
 		{
 			$_label = strtoupper($type) . ': ';
 		}
-		
+
 		$_message  = "\n";
 		$_message .= $_label . $message;
 		$_message .= "\n";
-		
+
 		fwrite(STDOUT, $_message);
-		
+
 		unset($_label, $_message, $message);
-		
+
 		if ($type == 'error' && $continue === FALSE)
 			exit();
 		else
 			return;
 	} // End of _display_message
-	
-	
+
+
 	/**
 	 * _display_growl function.
-	 * 
+	 *
 	 * @access protected
 	 * @static
 	 * @param string $message (default: '')
@@ -1110,52 +1110,52 @@ keys:create									# Creates a new public key
 	 * @return void
 	 */
 	protected static function _display_growl($message='',$title='Beanstalk CLI'){
-		
+
 		$image_path = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk'.DIRECTORY_SEPARATOR.'beanstalk.png';
-		
+
 		exec("growlnotify --image '".$image_path."' --message '".$message."' --title '".$title."'");
-		
+
 		exit();
-		
+
 	}
-	
-	
+
+
 	/**
 	 * _get_input function.
-	 * 
+	 *
 	 * @access protected
 	 * @static
 	 * @return void
 	 */
 	protected static function _get_input(){
-	
+
 		return trim(fgets(STDIN));
-	
+
 	}
-	
-	
+
+
 	/**
 	 * display_errors function.
-	 * 
+	 *
 	 * @access public
 	 * @param mixed $call
 	 * @return void
 	 */
 	public function display_errors($call){
-		
+
 		if($call->error){
 			self::_display_message('error', 'Errors',TRUE);
-			
+
 			foreach($call->error as $error):
 				self::_display_message('error', $error,TRUE);
 			endforeach;
-			
+
 			exit();
 		}
-		
+
 	}
-	
-		
+
+
 	/**
 	 * Creates a slug for the repo name
 	 *
@@ -1168,20 +1168,20 @@ keys:create									# Creates a new public key
 	public function _create_slug($str, $replace=array(), $delimiter='-') {
 
 		setlocale(LC_ALL, 'en_US.UTF8');
-		
+
 		if( !empty($replace) ) {
 			$str = str_replace((array)$replace, ' ', $str);
 		}
-		
+
 		$clean = iconv('UTF-8', 'ASCII//TRANSLIT', $str);
 		$clean = preg_replace("/[^a-zA-Z0-9\/_|+ -]/", '', $clean);
 		$clean = strtolower(trim($clean, '-'));
 		$clean = preg_replace("/[\/_|+ -]+/", $delimiter, $clean);
-		
+
 		return $clean;
 	}
-	
-	
+
+
 	/**
 	 * Makes a standard API call
 	 *
@@ -1192,23 +1192,23 @@ keys:create									# Creates a new public key
 	 * @author Leon Barrett
 	 */
 	public function make_api_call($api_params){
-	
+
 	  $url = "https://" . $this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
-	
+
 		$ch = NULL;
 		$results = NULL;
-		
+
 		$ch = curl_init();
-	
+
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_USERPWD, $this->beanstalk_username . ':' . $this->beanstalk_password);
-	
+
 		$results = curl_exec($ch);
 		curl_close($ch);
-		
+
 		$xml = @simplexml_load_string($results);
-		
+
 		if(!$xml){
 			$errors[0] = 'error';
 			$errors[1] = $results;
@@ -1216,10 +1216,10 @@ keys:create									# Creates a new public key
 		}
 
 		return $xml;
-		
+
 	}
-	
-	
+
+
 	/**
 	 * Makes a write API call
 	 *
@@ -1230,42 +1230,42 @@ keys:create									# Creates a new public key
 	 * @author Leon Barrett
 	 */
 	public function make_api_post_call($api_params,$post_string){
-	
+
 	  	$url = "https://" .$this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
-	
+
 		$ch = NULL;
 		$result = NULL;
-		
+
 		//open connection
 		$ch = curl_init();
-		
+
 		//set the url, number of POST vars, POST data
 		curl_setopt($ch,CURLOPT_URL,$url);
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml'));
 		curl_setopt($ch,CURLOPT_POSTFIELDS,"$post_string");
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		
+
 		curl_setopt($ch, CURLOPT_USERPWD, $this->beanstalk_username . ':' . $this->beanstalk_password);
 		//execute post
 		$result = curl_exec($ch);
-		
+
 		//close connection
 		curl_close($ch);
-				
+
 		$xml = @simplexml_load_string($result);
-				
+
 		if(!$xml){
-			
+
 			return false;
 		}
 
 		return $xml;
-		
-		
+
+
 	}
-	
-	
+
+
 }
 
 try {
