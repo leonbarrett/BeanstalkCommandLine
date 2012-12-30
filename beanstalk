@@ -2,51 +2,612 @@
 <?php
 error_reporting(1);
 date_default_timezone_set('Europe/London');
+
+/**
+ * ClipClop - a PHP option parser based on getopt()
+ *
+ * @author Pete Otaqui <pete@otaqui.com>
+ * @copyright Pete Otaqui
+ * Copyright (c) <year> <copyright holders>
+ * 
+ * Permission is hereby granted, free of charge, to any
+ * person obtaining a copy of this software and
+ * associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify,
+ * merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to
+ * whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission
+ * notice shall be included in all copies or
+ * substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY
+ * OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+ * LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+ * OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+ * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * @example
+ * $clipclop = new \ClipClop();
+ * 
+ * $clipclop->addOption(array(
+ *     'short' => 'e', // shortname, i.e. "-e"
+ *     'long' => 'environment', // longname, i.e. "--environment"
+ *     'value' => FALSE, // value required?  skip or set NULL for no value
+ *     'help' => 'Set the environment', // help text
+ *     'required' => TRUE, // This 'option' must be set to something
+ * ));
+ *
+ * $clipClop->addOption(array(
+ *     'short' => 't',
+ *     'long' => 'telephone',
+ *     'value' => TRUE,
+ *     'validate' => '/\(\d{3}\) \d{4}-\d{4}/', // number should match regular expression
+ *     'help' => 'telephone number in the format "(XXX) XXXX-XXXX'
+ * ));
+ *
+ * $clipClop->addOption(array(
+ *     'short' => 'n',
+ *     'long' => 'number-of-entries',
+ *     'value' => TRUE,
+ *     'type' => 'integer', // or 'float', 'json', 'url', ''
+ *     'help' => 'telephone number in the format "(XXX) XXXX-XXXX'
+ * ));
+ * 
+ * $clipclop->addOption(array(
+ *     'short' => 'v', // shortname
+ *     'long' => 'verbose', // longname
+ * ));
+ * 
+ * 
+ * $clipclop->run();
+ * 
+ * $clipclop->getOption('e'); // returns the value set for 'e' or 'environment'
+ * 
+ * $clipclop->getOption('environment'); // returns the value set for 'environment' or 'e'
+ * 
+ * $clipclop->getOption('v'); // returns TRUE if set, NULL otherwise
+ * 
+ * $clipclop->getOptions(); // returns array('environment'=>'test', 'v'=>TRUE);
+ * 
+ * $clipclop->setCommandName('foome'); // overrides default of $argv[0]
+ * 
+ * $clipclop->usage();
+*/
+class ClipClop
+{
+    private $options = array();
+    private $short_options = array();
+    private $long_options = array();
+    private $getopts;
+    private $parsed_options = array();
+    private $command_name;
+    private $has_run = FALSE;
+
+    /**
+     * Construct a ClipClop instance
+     * @param array $options Array of options to add right away
+     */
+    public function __construct($options = array())
+    {
+        foreach ( $options as $option ) {
+            $this->addOption($option);
+        }
+    }
+
+    /**
+     * Add an option to be parsed.
+     * @param array $option Containing keys 'value', 'short', 'long', 'required', 'help'
+     */
+    public function addOption($option)
+    {
+        $this->options[] = $option;
+        $value_part = '';
+        if ( array_key_exists('value', $option) && $option['value'] !== NULL ) {
+            $value_part = ($option['value']) ? ':' : '::';
+        }
+        if ( array_key_exists('short', $option) ) {
+            $this->short_options[] = $option['short'] . $value_part;
+        }
+        if ( array_key_exists('long', $option) ) {
+            $this->long_options[] = $option['long'] . $value_part;
+        }
+        usort($this->options, function($a, $b) {
+            $cmp = 0;
+            if ( array_key_exists('short', $a) && array_key_exists('short', $b) ) {
+                $cmp = strcmp($a['short'], $b['short']);
+            }
+            if ( $cmp === 0 && array_key_exists('long', $a) && array_key_exists('long', $b) ) {
+                $cmp = strcmp($a['long'], $b['long']);
+            }
+            return $cmp;
+        });
+    }
+
+    /**
+     * Run the parser using getopt()
+     */
+    public function run()
+    {
+        $gotopts = getopt(implode('', $this->short_options), $this->long_options);
+        $this->parseGetOpts($gotopts);
+    }
+
+    /**
+     * Run the parser with a predefined array, useful for testing
+     * @param  array $gotopts A getopt() style array
+     */
+    public function parseGetOpts($gotopts)
+    {
+        $this->has_run = TRUE;
+        if ( $gotopts === FALSE ) {
+            $this->usage(1);
+        }
+        // loop over all the option we *might* have got
+        foreach ( $this->options as $option ) {
+            $found = FALSE;
+            try {
+                // we prefer long options
+                // did we get a long option?
+                if ( array_key_exists('long', $option) ) {
+                    $lname = $option['long'];
+                    if ( array_key_exists($lname, $gotopts) ) {
+                        $found = TRUE;
+                        $this->parsed_options[$lname] = $this->convertGotOptToValue($option, $gotopts[$lname]);
+                    }
+                // or did we get a short option for this?
+                }
+                if ( !$found && array_key_exists('short', $option) ) {
+                    $sname = $option['short'];
+                    if ( array_key_exists($sname, $gotopts) ) {
+                        $found = TRUE;
+                        $this->parsed_options[$sname] = $this->convertGotOptToValue($option, $gotopts[$sname]);
+                    }
+                // was it required?
+                }
+            } catch (ClipClop_Invalid_Value_Exception $e) {
+                $error_message = $e->getMessage();
+                $this->usage(1, $error_message);
+            }
+            if ( !$found && array_key_exists('default', $option) ) {
+                $found = TRUE;
+                if ( array_key_exists('long', $option) ) {
+                    $this->parsed_options[$option['long']] = $option['default'];
+                }
+                if ( array_key_exists('short', $option) ) {
+                    $this->parsed_options[$option['short']] = $option['default'];
+                }
+            }
+            if ( !$found && array_key_exists('required', $option) ) {
+
+                $this->usage(1, "You are missing a required option");
+            }
+        }
+    }
+
+    private function convertGotOptToValue($option, $value)
+    {
+        if ( array_key_exists('multiple', $option) && $option['multiple'] ) {
+            $return = array();
+            if ( !is_array($value) ) {
+                $value = array($value);
+            }
+            foreach ($value as $val) {
+                $return[] = $this->convertSingleGotOptToValue($option, $val);
+            }
+        } else {
+            if ( is_array($value) ) {
+                $value = array_pop($value);
+            }
+            $return = $this->convertSingleGotOptToValue($option, $value);
+        }
+        return $return;
+    }
+
+    private function convertSingleGotOptToValue($option, $value)
+    {
+        if ( $value === FALSE ) {
+            $value = TRUE;
+        }
+        if ( !array_key_exists('type', $option) ) {
+            $option['type'] = 'string';
+        }
+        switch ($option['type']) {
+            case 'integer':
+                $value = (int) $value;
+                break;
+            case 'number':
+                $value = (float) $value;
+                break;
+            case 'json':
+                $value = json_decode($value);
+                break;
+            case 'url':
+                $value = parse_url($value);
+                break;
+        }
+        if ( array_key_exists('validate', $option) ) {
+            if ( preg_match($option['validate'], $value) === 0 ) {
+                throw new ClipClop_Invalid_Value_Exception("$value does not match {$option['validate']}");
+            }
+        }
+        return $value;
+    }
+
+    /**
+     * Get the formatted usage printout
+     * @return string The formatted usage
+     */
+    public function getUsage()
+    {
+        $required = array(
+            'helps' => array(),
+            'names' => array(),
+        );
+        $optional = array(
+            'helps' => array(),
+            'names' => array(),
+        );
+        foreach ($this->options as $option) {
+            $container = ( array_key_exists('required', $option) ) ? 'required' : 'optional';
+            $opt_names = array();
+            if ( array_key_exists('short', $option) ) {
+                $short_name = "-{$option['short']}";
+                if ( array_key_exists('value', $option) && $option['value'] !== NULL ) {
+                    $short_name .= '=value';
+                }
+                $opt_names[] = $short_name;
+            }
+            if ( array_key_exists('long', $option) ) {
+                $long_name = "--{$option['long']}";
+                if ( array_key_exists('value', $option) && $option['value'] !== NULL ) {
+                    $long_name .= '=value';
+                }
+                $opt_names[] = $long_name;
+            }
+            $opt_help = '';
+            if ( array_key_exists('help', $option) ) {
+                $opt_help = $option['help'];
+            }
+            if ( $container == 'required' ) {
+                $required['helps'][] = $opt_help;
+                $required['names'][] = implode(', ', $opt_names);
+            } else {
+                $optional['helps'][] = $opt_help;
+                $optional['names'][] = implode(', ', $opt_names);
+            }
+        }
+        $name_length = 0;
+        foreach ( $required['names'] as $name ) {
+            if ( strlen($name) > $name_length ) {
+                $name_length = strlen($name);
+            }
+        }
+        foreach ( $optional['names'] as $name ) {
+            if ( strlen($name) > $name_length ) {
+                $name_length = strlen($name);
+            }
+        }
+        $name_length += 1;
+        $output_length = max($this->getWidth(), round($name_length+$this->getMinimumHelpWidth()));
+        $help_length = $output_length - $name_length;
+        $out = $this->getCommandName();
+        $out .= "\n";
+        $help = $this->getCommandHelp();
+        if ( $help ) {
+            $out .= "\n";
+            $chunk_length = $name_length+$help_length;
+            $chunks = ceil(strlen($help)/$chunk_length);
+            for ( $i=0; $i<$chunks; $i++ ) {
+                $s = $i*$chunk_length;
+                $help_chunk = substr($help, $s, $chunk_length);
+                $out .= "$help_chunk\n";
+            }
+            
+        }
+        $out .= $this->formatDescriptions($required, "Required", $name_length, $help_length);
+        $out .= $this->formatDescriptions($optional, "Optional", $name_length, $help_length);
+        return $out;
+    }
+    /**
+     * Print out the usage, optionally exiting with a given code
+     * @param  integer $code The exit code (0 for OK, 1 for error, etc)
+     */
+    public function usage($code, $message = NULL) {
+        if ( $message !== NULL ) {
+            $this->getPrinter()->msg($this->getCommandName()." Error: $message\n\n");
+        }
+        $out = $this->getUsage();
+        $this->getPrinter()->msg($out);
+        if ( $code !== NULL ) {
+            $this->getQuitter()->quit($code);
+        }
+    }
+
+
+    private function formatDescriptions($descriptions, $text, $name_length, $help_length) {
+        $out = "";
+        if ( count($descriptions['names']) > 0 ) {
+            $out .= "\n{$text}:\n";
+            for ( $i=0, $imax=count($descriptions['names']); $i<$imax; $i++ ) {
+                $temp_name = $descriptions['names'][$i];
+                $temp_help = $descriptions['helps'][$i];
+                $temp_name = str_pad($temp_name, $name_length);
+                $out .= $temp_name." ";
+                $temp_help = $temp_help;
+                $chunks = ceil(strlen($temp_help)/$help_length);
+                $out .= substr($temp_help, 0, $help_length) . "\n";
+                for ( $j=1; $j<$chunks; $j++ ) {
+                    $help_part = substr($temp_help, ($j*$help_length), $help_length) . "\n";
+                    $chunk_len = $name_length+strlen($help_part)+1;
+                    $help_part = str_pad($help_part, $chunk_len, " ", STR_PAD_LEFT);
+                    $out .= $help_part;
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Get the value for an option by long name or short name
+     * @param  string $name The name of the option
+     * @return string       The value of the option, NB - returns TRUE for boolean (valueless) options if they were provided, unlike getopt().
+     */
+    public function getOption($name)
+    {
+        if ( !$this->has_run ) {
+            $this->run();
+        }
+        $given_option = NULL;
+        $other_name = NULL;
+        // is this a valid thing to ask for?
+        foreach ( $this->options as $given_option ) {
+            // in either case, track what the "other" name for this
+            // might be, so that we could invoke the long form
+            // "--verbose" but ask for the short form "v"
+            if ( array_key_exists('long', $given_option) && $given_option['long'] === $name ) {
+                $option = $given_option;
+                $other_name = array_key_exists('short', $option) ? $option['short'] : NULL;
+                break;
+            } elseif ( array_key_exists('short', $given_option) && $given_option['short'] === $name ) {
+                $option = $given_option;
+                $other_name = array_key_exists('long', $option) ? $option['long'] : NULL;
+                break;
+            }
+        }
+        if ( !$given_option ) {
+            throw new \Exception('Invalid option requested');
+        }
+        if ( array_key_exists($name, $this->parsed_options) ) {
+            $return = $this->parsed_options[$name];
+        } elseif ( array_key_exists($other_name, $this->parsed_options) ) {
+            $return = $this->parsed_options[$other_name];
+        } else {
+            $return = NULL;
+        }
+        if ( $return === FALSE ) {
+            $return = TRUE;
+        }
+        return $return;
+    }
+
+    /**
+     * Get an array of all options, duplicate values for those with short and long names
+     * @return array Array of ('name'=>'value')
+     */
+    public function getOptions()
+    {
+        $return = array();
+        foreach ( $this->options as $option ) {
+            if ( array_key_exists('long', $option) ) {
+                $return[$option['long']] = $this->getOption($option['long']);
+            }
+            if ( array_key_exists('short', $option) ) {
+                $return[$option['short']] = $this->getOption($option['short']);
+            }
+        }
+        return $return;
+    }
+
+    const DEFAULT_MINIMUM_HELP_WIDTH = 30;
+    private $minimum_help_width;
+    /**
+     * Get the minimum help string length for the usage printout
+     * @return integer The length, defaults to 30
+     */
+    public function getMinimumHelpWidth()
+    {
+        if ( !$this->minimum_help_width ) {
+            $this->minimum_help_width = self::DEFAULT_MINIMUM_HELP_WIDTH;
+        }
+        return $this->minimum_help_width;
+    }
+    /**
+     * Set the minimum help string length for the usage printout
+     * @param integer $width The length
+     */
+    public function setMinimumHelpWidth($width)
+    {
+        $this->minimum_help_width = $width;
+    }
+
+    const DEFAULT_WIDTH = 80;
+    private $width;
+    /**
+     * Get the overall length for the usage printout.  Defaults to `tput cols`
+     * @return number The length
+     */
+    public function getWidth()
+    {
+        if ( !$this->width ) {
+            try {
+                $this->width = (int) exec('tput cols');
+            } catch (\Exception $e) {}
+            if ( !$this->width ) {
+                $this->width = self::DEFAULT_WIDTH;
+            }
+        }
+        return $this->width;
+    }
+    /**
+     * Set the width of the usage printout
+     * @param integer $width The width
+     */
+    public function setWidth($width)
+    {
+        $this->width = (int) $width;
+    }
+
+    /**
+     * Set the command name for usage prinout, defaults to $argv[0]
+     * @param string $name The command name
+     */
+    public function setCommandName($name)
+    {
+        $this->command_name = $name;
+    }
+
+    /**
+     * Get the command name for usage printout, defaults to $argv[0]
+     * @return string The command name
+     */
+    public function getCommandName()
+    {
+        if ( !$this->command_name ) {
+            global $argv;
+            $this->command_name = $argv[0];
+        }
+        return $this->command_name;
+    }
+
+    private $command_help;
+    public function setCommandHelp($help)
+    {
+        $this->command_help = $help;
+    }
+    public function getCommandHelp()
+    {
+        return $this->command_help;
+    }
+
+
+    private $printer;
+    public function getPrinter()
+    {
+        if ( !$this->printer ) {
+            $this->printer = new ClipClop_Printer();
+        }
+        return $this->printer;
+    }
+    public function setPrinter(ClipClop_Printer_Interface $printer)
+    {
+        $this->printer = $printer;
+    }
+
+    private $quitter;
+    public function getQuitter()
+    {
+        if ( !$this->quitter ) {
+            $this->quitter = new ClipClop_Quitter();
+        }
+        return $this->quitter;
+    }
+    public function setQuitter(ClipClop_Quitter_Interface $quitter)
+    {
+        $this->quitter = $quitter;
+    }
+}
+
+class ClipClop_Invalid_Value_Exception extends Exception {}
+
+interface ClipClop_Printer_Interface
+{
+    public function msg($message);
+}
+class ClipClop_Printer implements ClipClop_Printer_Interface
+{
+    public function msg($message) {
+        print $message;
+    }
+}
+
+interface ClipClop_Quitter_Interface
+{
+    public function quit($code);
+}
+class ClipClop_Quitter implements ClipClop_Quitter_Interface
+{
+    public function quit($code) {
+        exit($code);
+    }
+}
+
+
 /**
 * @package Beanstalk
 * @author Leon Barrett
 * @link https://github.com/leonbarrett/BeanstalkappCLI
 * @copyright Copyright (c) 2011, Leon Barrett
 */
+
+
 class Beanstalk
 {
-
-
+		
+	
 	/**
 	 * beanstalk_account
-	 *
+	 * 
 	 * @var mixed
 	 * @access private
 	 */
 	private $beanstalk_account;
-
-
+	
+	
 	/**
 	 * beanstalk_username
-	 *
+	 * 
 	 * @var mixed
 	 * @access private
 	 */
 	private $beanstalk_username;
-
-
+	
+	
 	/**
 	 * beanstalk_password
-	 *
+	 * 
 	 * @var mixed
 	 * @access private
 	 */
 	private $beanstalk_password;
-
-
+	
+	
+	/**
+	 * clipclop
+	 * 
+	 * @var mixed
+	 * @access private
+	 */
+	private $clipclop;
+	
+	
 	/**
 	 * _valid_cli_params
-	 *
+	 * 
 	 * @var mixed
 	 * @access private
 	 * @static
 	 */
 	private static $_valid_cli_params = array(
+		'deploy',
 		'repo',
 		'repo:create',
 		'create-empty',
@@ -67,11 +628,11 @@ class Beanstalk
 		'keys:view',
 		'keys:create'
 	);
-
-
+	
+	
 	/**
 	 * _valid_beanstalk_colours
-	 *
+	 * 
 	 * @var mixed
 	 * @access private
 	 * @static
@@ -85,24 +646,25 @@ class Beanstalk
 		'pink',
 		'grey',
 	);
-
-
+	
+	
 	/**
 	 * _valid_beanstalk_repo_types
-	 *
+	 * 
 	 * @var mixed
 	 * @access private
 	 * @static
 	 */
 	private static $_valid_beanstalk_repo_types = array(
-		'svn',
+		'subversion',
 		'git',
+		'mercurial',
 	);
-
+	
 
 	/**
 	 * colourOutput function.
-	 *
+	 * 
 	 * @access public
 	 * @param mixed $text
 	 * @param mixed $status
@@ -116,9 +678,9 @@ class Beanstalk
 		break;
 		case "label-orange":
 		$out = "[0;31m";
-		break;
+		break;		
 		case "label-yellow":
-		$out = "[0;33m";
+		$out = "[0;33m"; 
 		break;
 		case "label-green":
 		$out = "[0;32m";
@@ -131,12 +693,12 @@ class Beanstalk
 		break;
 		case "label-grey":
 		$out = "[0;37m";
-		break;
+		break;			
 	}
 	return chr(27) . "$out" . "$text" . chr(27) . "[0m";
 	}
-
-
+	
+	
 	/**
 	 * The Constructor!
 	 *
@@ -145,6 +707,7 @@ class Beanstalk
 	 */
 	public function __construct()
 	{
+	
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
 
 		if (file_exists($config_file) && parse_ini_file($config_file)):
@@ -153,15 +716,15 @@ class Beanstalk
 				$this->beanstalk_account = $config['account_settings']['account'];
 				$this->beanstalk_username = $config['account_settings']['username'];
 				$this->beanstalk_password = $config['account_settings']['password'];
-
-			else:
+				
+			else:				
 				$this->update_config();
 		endif;
-
-
+	
+			
 	} // End of __construct
-
-
+	
+	
 	/**
 	 * Checks that the 1st parameter matches a set array, and then calls a function if so
 	 * Will throw an error if function is not defined
@@ -172,433 +735,267 @@ class Beanstalk
 	 * @return void|bool : Throws an Exception if validation fails. Otherwise, return TRUE.
 	 * @author Leon Barrett
 	 */
-	public function init($args)
+	public function init()
 	{
-		// First thing to do is to verify that the first parameter is a valid keyword!
-		if (!in_array($args[1], self::$_valid_cli_params))
-			throw new Exception($args[1] . ' is not a valid type! Type beanstalk help for instructions on how to use this script!');
-
-		//Call required function based on user input
-		$action = $args[1];
-
-		switch($action){
-
+	
+		$this->clipclop = new ClipClop();
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'h',
+		    'long' => 'help',
+		    'value' => NULL,
+		    'help' => 'help', 
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'm',
+		    'long' => 'method',
+		    'value' => TRUE,
+		    'help' => 'Method to call', 
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'r',
+		    'long' => 'repository',
+		    'value' => TRUE,
+		    'help' => 'Repository name',
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'v',
+		    'long' => 'version',
+		    'value' => TRUE,
+		    'help' => 'Repository revision',
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'e',
+		    'long' => 'environment',
+		    'value' => TRUE,
+		    'help' => 'Release environment',
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'c',
+		    'long' => 'comment',
+		    'value' => TRUE,
+		    'help' => 'Commit message',
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 'p',
+		    'long' => 'path',
+		    'value' => TRUE,
+		    'help' => 'File path',
+		));
+		
+		$this->clipclop->addOption(array(
+		    'short' => 't',
+		    'long' => 'type',
+		    'value' => TRUE,
+		    'help' => 'Repository type',
+		));
+		
+		$this->clipclop->addOption(array(
+		    'long' => 'colour',
+		    'value' => TRUE,
+		    'help' => 'Repository type',
+		    'default' => 'white',
+		));
+		
+		$help = $this->clipclop->getOption('h');
+		
+		if($help) self::help();
+		
+		$method = $this->clipclop->getOption('m');
+		
+		if (!in_array($method, self::$_valid_cli_params))
+			throw new Exception($method . ' is not a valid type! Type "beanstalk --help" for instructions on how to use this script!');
+		
+		
+		switch($method){
+						
 			case 'repo':
 				self::_display_message('ERROR', 'Method depreciated. Please type beanstalk help for more info');
 			break;
-
+			
 			case 'repo:create':
-				self::create_repo_wizard($args);
+				self::create_repo_wizard();
 			break;
-
+			
 			case 'create-git':
 				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
 			break;
-
+			
 			case 'create-empty':
 				self::_display_message('ERROR', 'Method depreciated. Please use beanstalk repo:create');
 			break;
-
+			
 			case 'repo:deploy':
-				self::create_release($args,'single');
+				self::deploy_release('single');
 			break;
-
+			
 			case 'repo:deployall':
-				self::create_release($args,'all');
+				self::deploy_release('all');
 			break;
-
+			
 			case 'repo:list':
 				self::list_repos();
 			break;
-
-			case 'help':
-				self::help();
-			break;
-
+			
 			case 'repo:info':
-				self::fetch_repo($args);
+				self::fetch_repo();
 			break;
-
+			
 			case 'repo:changes':
-				self::fetch_changes($args);
+				self::fetch_changes();
 			break;
-
+			
 			case 'repo:releases':
-				self::fetch_releases($args);
+				self::fetch_releases();
 			break;
-
+			
 			case 'repo:search':
-				self::search_repos($args);
+				self::search_repos();
 			break;
-
+			
 			case 'repo:init':
-				//self::_display_message('ERROR', 'Hold tight, coming soon!');
 				self::init_repo();
 			break;
-
+			
 			case 'account:config':
 				self::update_config();
 			break;
-
+			
 			case 'web:dashboard':
 				self::open_url('');
 			break;
-
+			
 			case 'web:repos':
 				self::open_url('repositories');
 			break;
-
+			
 			case 'web:preview':
-				self::web_preview($args);
+				self::web_preview();
 			break;
-
+			
 			case 'keys:view':
 				self::keys_view();
 			break;
-
+			
 			case 'keys:create':
 				self::keys_create();
 			break;
 
-
 		}
 
+		
 		return TRUE;
 	} // End of init
-
-
+	
+	
 	/**
-	 * keys_view function.
-	 *
+	 * deploy_release function.
+	 * 
 	 * @access public
 	 * @return void
 	 */
-	function keys_view(){
-
-		self::_display_message('', '******************** KEYS ********************');
-
-		$keys = self::make_api_call('public_keys.xml');
-
-		foreach($keys as $key){
-
-			self::_display_message('', '** '.$key->name.' **');
-
-			self::_display_message('', $key->content);
-
-			self::_display_message('', 'Created on: '.date('D, jS F Y',strtotime($key->{'created-at'})));
-
-		}
-
-	}
-
-
-	/**
-	 * keys_create function.
-	 *
-	 * @access public
-	 * @return void
-	 */
-	function keys_create(){
-
-		self::_display_message('', '******************** CREATE KEY ********************');
-
-		$keyname = gethostname();
-
-		self::_display_message('', 'Do you want to use your hostname ('.$keyname.')? y/n');
-
-		$response = self::_get_input();
-
-		if($response == 'n' || $response == 'no'){
-
-			self::_display_message('', 'Please enter a keyname: ');
-
-			$keyname = self::_get_input();
-
-		}
-
-		$filename = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'.ssh'.DIRECTORY_SEPARATOR.'id_rsa.pub';
-
-		self::_display_message('', 'Looking for key in: '.$filename);
-
-		$handle = fopen($filename, "r");
-		$keycontent = fread($handle, filesize($filename));
-		fclose($handle);
-
-		if(!$keycontent){
-
-			self::_display_message('', 'Couldn\'t find a file in: '.$filename.'. Please paste your key: ');
-
-			$keycontent = self::_get_input();
-
-		}
-
-		$post_string = '<public_key>
-						  <name>'.$keyname.'</name>
-						  <content>'.$keycontent.'</content>
-						</public_key>';
-
-		self::_display_message('','Creating key, please wait.');
-
-		$new_key = self::make_api_post_call('public_keys.xml',$post_string);
-
-		self::display_errors($new_key);
-
-		self::_display_message('','Key created');
-
-	}
-
-
-	/**
-	 * search_repos function.
-	 *
-	 * @access public
-	 * @param mixed $params
-	 * @return void
-	 */
-	function search_repos($params){
-
-		self::_display_message('', '******************** SEARCH REPOS ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name/ID: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
-		}
-
-		self::_display_message('','******************** Searching for: '.$repo_name.' ********************');
-
-		$repos = self::make_api_call('repositories.xml');
-
-		self::display_errors($repos);
-
-		$found_repos = 0;
-
-		if(count($repos->repository)>0):
-
-			foreach($repos->repository as $repo):
-
-				$pos = strpos(strtolower($repo->name), strtolower($repo_name));
-
-				if ($pos !== false) {
-
-					$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-					$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';
-					$_message .= $repo->title;
-					$_message .= ' ('.$repo->name.') ';
-					if ($type == 'SVN') {
-						$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
-					} else {
-						$_message .=' - git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo->name.'.git';
-					}
-					$_message .= "\n";
-
-					fwrite(STDOUT, $_message);
-
-
-					 $found_repos++;
-				}
-
-
-			endforeach;
-
-		else:
-
-			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
-
-		endif;
-
-		self::_display_message('','******************** Found ('.$found_repos.') repos matching your search term ********************');
-
-		self::_display_message('', '********************');
-
-
-
-	}
-
-
-	/**
-	 * init_repo function.
-	 *
-	 * @access public
-	 * @return void
-	 */
-	function init_repo(){
-
-		$current_directory = getcwd();
-
-		fwrite(STDOUT, "Set up Beanstalk repo config in: '".$current_directory."'? y/n ");
-		$dir_confirm = trim(fgets(STDIN));
-
-		$dir_confirm = strtolower($dir_confirm);
-
-		if($dir_confirm == 'y' || $dir_confirm == 'yes'){
-
-			fwrite(STDOUT, 'Please enter the repo name exactly as it appears in Beanstalk? ');
-			$repo_name = trim(fgets(STDIN));
-
-			fwrite(STDOUT, 'Please enter the URL for the staging domain (optional)? ');
-			$staging_url = trim(fgets(STDIN));
-
-			fwrite(STDOUT, 'Please enter the URL for the production domain (optional)? ');
-			$production_url = trim(fgets(STDIN));
-
-
-			$config_file = $current_directory.DIRECTORY_SEPARATOR.'beanstalk_cli.config';
-
-			$config_file_details = "repo = ".$repo_name;
-
-			$fp = fopen($config_file, 'w+');
-			fwrite($fp, $config_file_details);
-			fclose($fp);
-
-		}
-
-	}
-
-
-	/**
-	 * open_url function.
-	 *
-	 * @access public
-	 * @param mixed $path
-	 * @return void
-	 */
-	function open_url($path){
-
-		$url = 'https://'.$this->beanstalk_account.'.beanstalkapp.com/'.$path;
-
-		exec('open '.$url);
-
-	}
-
-
-	/**
-	 * web_preview function.
-	 *
-	 * @access public
-	 * @param mixed $params
-	 * @return void
-	 */
-	function web_preview($params){
-
-		self::_display_message('', '******************** WEB PREVIEW ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name/ID: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
-		}
-
-		self::_display_message('', 'Please enter the path for a file to preview in '.$repo_name.':');
-
-		$file_path = trim(fgets(STDIN));
-
-		self::_display_message('', 'Please enter a revision for this file (optional, if left blank will fetch latest):');
-
-		$file_rev = trim(fgets(STDIN));
-
-		$path = $repo_name.'/previews/'.$file_path.'?rev='.$file_rev;
-
-		self::_display_message('',$path);
-
-		self::open_url($path);
-
-	}
-
-
-	/**
-	 * create_release function.
-	 *
-	 * @access public
-	 * @param mixed $params
-	 * @param mixed $mode
-	 * @return void
-	 */
-	function create_release($params,$mode){
-
+	function deploy_release($mode = 'single'){
+		
+		$repo_name = $this->clipclop->getOption('r');
+		
+		$revision = $this->clipclop->getOption('v');
+		
+		$environment = $this->clipclop->getOption('e');
+		
+		$comment = $this->clipclop->getOption('c');
+				
 		self::_display_message('', '******************** DEPLOY REPO ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name/ID: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
 		}
-
+		
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
-		$envs = self::make_api_call($repo_name.'/server_environments.xml');
-
+		
 		self::display_errors($repo);
+		
+		$envs = self::make_api_call($repo_name.'/server_environments.xml');
+		
 		self::display_errors($envs);
-
+		
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
-
+		
 		$found_envs = array();
-
+		$env_name = '';
+		$env_id = '';
+		$env_rev = '';
+		
 		$i = 0;
-
+		
 		if(count($envs) > 0):
-
+		
 			self::_display_message('', 'Release Environments: ('.count($envs).')');
-
+		
 			foreach($envs as $env):
 				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.') - type '.$i);
 				$found_envs[] = array('id'=>$env->id,'name'=>$env->name,'version'=>$env->{'current-version'});
+				
+				if($env->name == $environment){
+					
+					$env_name = $env->name;
+					$env_id = $env->id;
+					$env_rev = $env->{'current-version'};
+					
+				}
+				
 				$i++;
 			endforeach;
 		else:
 			self::_display_message('error', 'This repo does not contain any release environments');
 		endif;
-
-		fwrite(STDOUT, "Please enter an Environment to deploy (type the number only): ");
-		$input_id = trim(fgets(STDIN));
-
-		$repo_id = $repo->id;
-
-		$env_name = $found_envs[$input_id]['name'];
-		$env_id = $found_envs[$input_id]['id'];
-		$env_rev = $found_envs[$input_id]['version'];
-
-
-		$env = self::make_api_call($repo_id.'/server_environments/'.$env_id.'.xml');
-
-		self::display_errors($env);
-
-		if(!$env) self::_display_message('error', 'No environment found matching '.$env_name.'. Please try again');
-
-
-		$deploy_id = $env->id;
-
-
-		fwrite(STDOUT, "Please enter an revision number to deploy OR leave blank to deploy the latest revision: ");
-		$rev_number = trim(fgets(STDIN));
-
-		$confirmation_string = '';
-
-		if($rev_number == ''){
-			$confirmation_string = "You are about to deploy Revision ".$env_rev." to ".$env_name.", are you sure you want to continue? y/n: ";
-			$rev_number = '';
-		}else{
-			$confirmation_string = "You are about to deploy Revision ".$rev_number." to ".$env_name.", are you sure you want to continue? y/n: ";
+		
+		if(!$environment && !$env_name){
+			self::_display_message('', 'Please enter an Environment to deploy (type the number only): ');
+			$input_id = self::_get_input();
+		
+			$env_name = $found_envs[$input_id]['name'];
+			$env_id = $found_envs[$input_id]['id'];
+			$env_rev = $found_envs[$input_id]['version'];
+		
 		}
-
-		fwrite(STDOUT, 'Please enter a release comment (optional): ');
-		$comment = strtolower(trim(fgets(STDIN)));
-
-		fwrite(STDOUT, $confirmation_string);
-		$confirmation = strtolower(trim(fgets(STDIN)));
-
+				
+		$env = self::make_api_call($repo->id.'/server_environments/'.$env_id.'.xml');
+		
+		self::display_errors($env);
+		
+		if(!$env) self::_display_message('error', 'No environment found matching '.$env_name.'. Please try again');
+		
+		$deploy_id = $env->id;
+		
+		if($revision){
+			$rev_number = $revision;
+			$confirmation_string = "You are about to deploy Revision ".$rev_number." to ".$env_name.", are you sure you want to continue? y/n: ";
+		}else{
+			$rev_number = '';
+			$confirmation_string = "You are about to deploy Revision ".$env_rev." to ".$env_name.", are you sure you want to continue? y/n: ";
+		}
+				
+		self::_display_message('', $confirmation_string);
+		$confirmation = strtolower(self::_get_input());
+		
 		if($confirmation == "n"){
 			self::_display_message('', 'Deployment cancelled');
 			exit();
 		}
-
+		
 		if($mode=='all'){
-
-				$post_string = '<release>
+			
+			$post_string = '<release>
 				  <deploy_from_scratch>true</deploy_from_scratch>
 				  <revision type="integer">'.$rev_number.'</revision>
 				  <comment><![CDATA['.$comment.']]></comment>
@@ -608,22 +1005,279 @@ class Beanstalk
 			  <revision type="integer">'.$rev_number.'</revision>
 			  <comment><![CDATA['.$comment.']]></comment>
 			</release>';
-
+			
 		}
-
-
-
+				
+		
+		
 		$release = self::make_api_post_call($repo_name.'/releases.xml?environment_id='.$deploy_id,$post_string);
-
+		
 		self::display_errors($release);
-
-		self::check_status($release->state,$release->id,$repo_id);
-
+		
+		self::check_status($release->state,$release->id,$repo->id);
+		
+		
 	}
-
+	
+	/**
+	 * keys_view function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	function keys_view(){
+		
+		self::_display_message('', '******************** KEYS ********************');
+		
+		$keys = self::make_api_call('public_keys.xml');
+		
+		foreach($keys as $key){
+						
+			self::_display_message('', '** '.$key->name.' **');
+			
+			self::_display_message('', $key->content);
+			
+			self::_display_message('', 'Created on: '.date('D, jS F Y',strtotime($key->{'created-at'})));
+			
+		}
+	
+	}
+	
+	
+	/**
+	 * keys_create function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	function keys_create(){
+		
+		self::_display_message('', '******************** CREATE KEY ********************');
+		
+		$keyname = gethostname();
+		
+		self::_display_message('', 'Do you want to use your hostname ('.$keyname.')? y/n');
+		
+		$response = self::_get_input();
+		
+		if($response == 'n' || $response == 'no'){
+			
+			self::_display_message('', 'Please enter a keyname: ');
+			
+			$keyname = self::_get_input();
+		
+		}
+		
+		$filename = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'.ssh'.DIRECTORY_SEPARATOR.'id_rsa.pub';
+		
+		self::_display_message('', 'Looking for key in: '.$filename);	
+		
+		$handle = fopen($filename, "r");
+		$keycontent = fread($handle, filesize($filename));
+		fclose($handle);
+		
+		if(!$keycontent){
+		
+			self::_display_message('', 'Couldn\'t find a file in: '.$filename.'. Please paste your key: ');
+			
+			$keycontent = self::_get_input();
+		
+		}
+		
+		$post_string = '<public_key>
+						  <name>'.$keyname.'</name>
+						  <content>'.$keycontent.'</content>
+						</public_key>';
+		
+		self::_display_message('','Creating key, please wait.');	
+		
+		$new_key = self::make_api_post_call('public_keys.xml',$post_string);
+		
+		self::display_errors($new_key);
+		
+		self::_display_message('','Key created');
+					
+	}
+	
+	
+	/**
+	 * search_repos function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
+	function search_repos(){
+		
+		self::_display_message('', '******************** SEARCH REPOS ********************');
+		
+		$repo_name = $this->clipclop->getOption('r');
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
+		}		
+		
+		self::_display_message('','******************** Searching for: '.$repo_name.' ********************');
+		
+		$repos = self::make_api_call('repositories.xml');
+		
+		self::display_errors($repos);
+		
+		$found_repos = 0;
+		
+		if(count($repos->repository)>0):
+						
+			foreach($repos->repository as $repo):
+				
+				$pos = strpos(strtolower($repo->name), strtolower($repo_name));
+			
+				if ($pos !== false) {
+					
+					$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
+					$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';				
+					$_message .= $repo->title;
+					$_message .= ' ('.$repo->name.') ';
+					if ($type == 'SVN') { 
+						$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
+					} else {
+						$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
+					}
+					$_message .= "\n";
+						
+					fwrite(STDOUT, $_message);
+					
+					
+					 $found_repos++;
+				}						
+				
+				
+			endforeach;
+			
+		else:
+		
+			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
+			
+		endif;
+		
+		self::_display_message('','******************** Found ('.$found_repos.') repos matching your search term ********************');
+		
+		self::_display_message('', '********************');		
+		
+	}
+	
+	
+	/**
+	 * init_repo function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	function init_repo(){
+		
+		$current_directory = getcwd();
+		
+		fwrite(STDOUT, "Set up Beanstalk repo config in: '".$current_directory."'? y/n ");
+		$dir_confirm = trim(fgets(STDIN));
+		
+		$dir_confirm = strtolower($dir_confirm);
+		
+		if($dir_confirm == 'y' || $dir_confirm == 'yes'){
+			
+			fwrite(STDOUT, 'Please enter the repo name exactly as it appears in Beanstalk? ');
+			$repo_name = trim(fgets(STDIN));	
+			
+			fwrite(STDOUT, 'Please enter the URL for the staging domain (optional)? ');
+			$staging_url = trim(fgets(STDIN));
+			
+			fwrite(STDOUT, 'Please enter the URL for the production domain (optional)? ');
+			$production_url = trim(fgets(STDIN));
+					
+			
+			$config_file = $current_directory.DIRECTORY_SEPARATOR.'beanstalk_cli.config';		
+			
+			$config_file_details = "repo = ".$repo_name;
+			
+			$fp = fopen($config_file, 'w+');
+			fwrite($fp, $config_file_details);
+			fclose($fp);			
+			
+		}
+		
+	}	
+	
+	
+	/**
+	 * open_url function.
+	 * 
+	 * @access public
+	 * @param mixed $path
+	 * @return void
+	 */
+	function open_url($path){
+		
+		$url = 'https://'.$this->beanstalk_account.'.beanstalkapp.com/'.$path;
+		
+		exec('open '.$url);
+		
+	}
+	
+	
+	/**
+	 * web_preview function.
+	 * 
+	 * @access public
+	 * @param mixed $params
+	 * @return void
+	 */
+	function web_preview(){
+		
+		self::_display_message('', '******************** WEB PREVIEW ********************');
+		
+		$repo_name = $this->clipclop->getOption('r');
+		
+		$file_path = $this->clipclop->getOption('p');
+		
+		$revision = $this->clipclop->getOption('v');
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
+		}
+		
+		if(!$file_path){
+			
+			self::_display_message('', 'Please enter the path for a file to preview in '.$repo_name.':');
+			$file_path = self::_get_input();
+			
+		}
+		
+		if($revision){
+			
+			$path = $repo_name.'/previews/'.$file_path.'?rev='.$file_rev;
+			
+		}else{
+			
+			$path = $repo_name.'/previews/'.$file_path;
+			
+		}
+		
+		
+		
+		self::_display_message('',$path);
+		
+		self::open_url($path);
+		
+	}
+	
+	
 	/**
 	 * check_status function.
-	 *
+	 * 
 	 * @access public
 	 * @param mixed $status
 	 * @param mixed $id
@@ -631,213 +1285,219 @@ class Beanstalk
 	 * @return void
 	 */
 	function check_status($status,$id,$repo){
-
+		
 		switch($status){
-
+			
 			case 'pending':
-
+			
 				self::_display_message('', 'Deployment pending...');
-
+				
 				sleep(7);
-
+				
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
-
+				
 				self::check_status($release->state,$id,$repo);
-
+				
 			break;
-
+			
 			case 'waiting':
 				self::_display_message('', 'Deployment waiting...');
-
+				
 				sleep(7);
-
+				
 				$release = self::make_api_call($repo.'/releases/'.$id.'.xml');
-
+								
 				self::check_status($release->state,$id,$repo);
-
+				
 			break;
-
+			
 			case 'failed':
 				self::_display_message('', 'Deployment failed.');
 				//self::_display_growl('Deployment Failed');
 			break;
-
+			
 			case 'success':
 				self::_display_message('', 'Deployed successfully.');
 				//self::_display_growl('Deployment Finished');
 			break;
-
+			
 			case 'skipped':
 				self::_display_message('', 'Deployment skipped.');
 				//self::_display_growl('Deployment Skipped');
 			break;
 		}
 	}
-
-
+	
+	
 	/**
 	 * update_config function.
-	 *
+	 * 
 	 * @access public
 	 * @return void
 	 */
 	function update_config(){
-
+		
 		fwrite(STDOUT, 'Please enter your Beanstalk account details to continue?');
-
+		
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
-
+		
 		fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
 		$account_name = trim(fgets(STDIN));
-
+		
 		fwrite(STDOUT, "Please enter a Beanstalk User Name:");
 		$user_name = trim(fgets(STDIN));
-
+		
 		fwrite(STDOUT, "Please enter your Beanstalk Password:");
-		$password = trim(fgets(STDIN));
-
+		$password = trim(fgets(STDIN));				
+		
 		$config_file_details = "[account_settings]\naccount = ".$account_name."\nusername = ".$user_name."\npassword = ".$password;
-
+		
 		$fp = fopen($config_file, 'w+');
 		fwrite($fp, $config_file_details);
 		fclose($fp);
-
+		
 	}
-
-
+	
+	
 	/**
 	 * fetch_changes function.
-	 *
+	 * 
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
-	function fetch_changes($params){
-
+	function fetch_changes(){
+		
 		self::_display_message('', '******************** REPO CHANGES ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name/ID: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
+		
+		$repo_name = $this->clipclop->getOption('r');
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
 		}
-
+		
 		$changeset = self::make_api_call('changesets/repository.xml?repository_id='.$repo_name);
-
+		
 		self::display_errors($changeset);
-
+		
 		$prev_date = date('d',strtotime($changeset->{'revision-cache'}[0]->time));
 		self::_display_message('', '*** '. date('dS M Y',strtotime($changeset->{'revision-cache'}[0]->time)).' ***');
-
+		
 		foreach($changeset->{'revision-cache'} as $change):
 		if(date('d',strtotime($change->time)) != $prev_date){
 		self::_display_message('', '*** '. date('dS M Y',strtotime($change->time)).' ***');
 		$prev_date = date('d',strtotime($change->time));
-		}
-
-		self::_display_message('',$change->message. '('.$change->revision.')'."\n".'by '.$change->author.' at '.date('H:i',strtotime($change->time)));
+		} 
+		
+		self::_display_message('',$change->message. '('.$change->revision.')'."\n".'by '.$change->author.' at '.date('H:i',strtotime($change->time)));			
 		endforeach;
-
+		
 		self::_display_message('', '********************');
 	}
-
-
+	
+	
 	/**
 	 * fetch_releases function.
-	 *
+	 * 
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
-	function fetch_releases($params){
-
+	function fetch_releases(){
+		
 		self::_display_message('', '******************** REPO RELEASES ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name/ID: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
+		
+		$repo_name = $this->clipclop->getOption('r');
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
 		}
-
+				
 		$releases = self::make_api_call($repo_name.'/releases.xml');
-
+		
 		self::display_errors($releases);
-
+		
 		$prev_date = date('d',strtotime($releases->release[0]->{'updated-at'}));
 		self::_display_message('', '*** '. date('dS M Y',strtotime($releases->release[0]->{'updated-at'})).' ***');
-
+		
 		foreach($releases->release as $release):
 		if(date('d',strtotime($release->{'updated-at'})) != $prev_date){
 		self::_display_message('', '*** '. date('dS M Y',strtotime($release->{'updated-at'})).' ***');
 		$prev_date = date('d',strtotime($release->{'updated-at'}));
-		}
-
+		} 
+		
 		self::_display_message('',$release->{'environment-name'}. ' ('.$release->revision.') by '.$release->author.' at '.date('H:i',strtotime($release->{'updated-at'}))."\n".$release->comment."\n".$release->state );
 
-
+			
 		endforeach;
-
+		
 		self::_display_message('', '********************');
 	}
-
-
+	
+	
 	/**
 	 * fetch_repo function.
-	 *
+	 * 
 	 * @access public
 	 * @param mixed $params
 	 * @return void
 	 */
-	function fetch_repo($params){
-
+	function fetch_repo(){
+		
 		self::_display_message('', '******************** REPO INFO ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name/ID: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
+		
+		$repo_name = $this->clipclop->getOption('r');
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
 		}
-
+				
 		$repo = self::make_api_call('repositories/'.$repo_name.'.xml');
 		$envs = self::make_api_call($repo_name.'/server_environments.xml');
-
-
+		
+		
 		self::display_errors($repo);
 		self::display_errors($envs);
-
+		
 		if(!$repo) self::_display_message('error', 'No repo found matching: '.$repo_name);
-
+		
 		self::_display_message('', 'Repo name: '.$repo->name);
 		self::_display_message('', 'Revision: '.$repo->revision);
 		$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
 		self::_display_message('', 'Type: '.$type);
 		self::_display_message('', 'Last commit: '.date('dS M Y @ H:i',strtotime($repo->{'last-commit-at'})));
-		if ($type == 'SVN') {
+		if ($type == 'SVN') { 
 			$path ='https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 		} else {
-			$path ='git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo->name.'.git';
+			$path ='git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
 		}
-
+		
 		self::_display_message('', 'Path: '.$path);
-
+		
 		if(count($envs) > 0):
-
+		
 			self::_display_message('', 'Release Environments: ('.count($envs).')');
-
+		
 			foreach($envs as $env):
 				self::_display_message('', '	'.$env->name.' ('.$env->{'current-version'}.')');
 			endforeach;
-
+		
 		endif;
-
+		
 		self::_display_message('', '********************');
-
+		
 	}
 
-
+	
 	/**
 	 * Lists repos for the current account
 	 *
@@ -847,42 +1507,42 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public function list_repos(){
-
+				
 		self::_display_message('', '********************  REPOSITORIES FOR '.$this->beanstalk_account. '  ********************');
-
+		
 		$repos = self::make_api_call('repositories.xml');
-
+		
 		self::display_errors($repos);
-
+		
 		if(count($repos->repository)>0):
-
+						
 			foreach($repos->repository as $repo):
 				$type = $repo->type=='SubversionRepository'?'SVN':'GIT';
-				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';
+				$_message = $this->colourOutput('●',$repo->{'color-label'}).' ';				
 				$_message .= $repo->title;
 				$_message .= ' ('.$repo->name.') ';
-				if ($type == 'SVN') {
+				if ($type == 'SVN') { 
 					$_message .=' https://'.$this->beanstalk_username.'@'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo->name.'/';
 				} else {
-					$_message .=' - git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo->name.'.git';
+					$_message .=' - git@'.$this->beanstalk_account.'beanstakapp.com:/'.$repo->name.'.git';
 				}
 				$_message .= "\n";
-
+					
 				fwrite(STDOUT, $_message);
-
+				
 			endforeach;
-
+			
 		else:
-
+		
 			self::_display_message('error', 'No repos for '.$this->beanstalk_account);
-
+			
 		endif;
-
+		
 		self::_display_message('', '********************');
-
+		
 	}
-
-
+	
+		
 	/**
 	 * Creates a repo. Wizard guides through settings
 	 *
@@ -890,135 +1550,121 @@ class Beanstalk
 	 * @static
 	 * @return void
 	 * @author Leon Barrett
-	 */
+	 */	 
 	public function create_repo_wizard($params){
-
+		
 		self::_display_message('', '******************** CREATE REPO ********************');
-
-		if($params[2] == ''){
-			fwrite(STDOUT, "Please enter a repository name: ");
-			$repo_name = trim(fgets(STDIN));
-		}else{
-			$repo_name = $params[2];
+		
+		$repo_name = $this->clipclop->getOption('r');
+		$repo_type = $this->clipclop->getOption('t');
+		$repo_colour = $this->clipclop->getOption('colour');
+		
+		if(!$repo_name){
+			
+			self::_display_message('', 'Please enter a repository name/ID: ');
+			$repo_name = self::_get_input();
+			
 		}
-
-		//Get Repo Type and check
-		fwrite(STDOUT, "Enter repo type? svn/git: ");
-		$repo_type = trim(fgets(STDIN));
-
-		if (!in_array($repo_type, self::$_valid_beanstalk_repo_types)){
-			fwrite(STDOUT, "Enter a valid repo type! svn/git : ");
-			$repo_type = trim(fgets(STDIN));
+		
+		if(!$repo_type){
+			
+			self::_display_message('', 'Please enter a repository type (subversion/git/mercurial): ');
+			$repo_type = self::_get_input();
+			
 		}
-
-
-		//Get Repo Colour
-		fwrite(STDOUT, "Enter repo colour label : ");
-		$repo_colour = trim(fgets(STDIN));
-
+		
+		if(!in_array($repo_type, self::$_valid_beanstalk_repo_types)){
+			self::_display_message('', 'Please enter a repository type (subversion/git/mercurial): ');
+			$repo_type = self::_get_input();
+		}
+		
+		
+		
 		if (!in_array($repo_colour, self::$_valid_beanstalk_colours)){
-			fwrite(STDOUT, "Enter a valid repo colour label : ");
-			$repo_colour = trim(fgets(STDIN));
+			self::_display_message('error', 'Enter a valid repo colour label : ');
+			//$repo_colour = self::_get_input();
 		}
-
+		
 		$title = self::_create_slug($repo_name);
-
+		
 		self::_display_message('notice', 'Starting to create '.$repo_name);
-
-
-		if($repo_type == 'git'){
-
-			self::_display_message('', 'Starting to create '.$repo_name);
-
-			$api_data = '<?xml version="1.0" encoding="UTF-8"?>
-			<repository>
-			  <name>'.$title.'</name>
-			  <title>'.$repo_name.'</title>
-			  <color_label>label-'.$repo_colour.'</color_label>
-			  <type_id>git</type_id>
-			</repository>';
-
-			$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
-
-			self::display_errors($create_empty_repo);
-
-			self::_display_message('', 'Finished setting up GIT repo - '.$repo_name);
-			self::_display_message('', 'Git clone URL git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo_name.'.git');
-
-			self::_display_message('', '********************');
-
-
-		}elseif($repo_type == 'svn'){
-
-			$api_data = '<?xml version="1.0" encoding="UTF-8"?>
-			<repository>
-			  <name>'.$title.'</name>
-			  <title>'.$repo_name.'</title>
-			  <color_label>label-'.$repo_colour.'</color_label>
-			  <create_structure type="boolean">true</create_structure>
-			</repository>';
-
-			$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
-
-			self::display_errors($create_empty_repo);
-
-			self::_display_message('', 'Created '.$repo_name);
-
-			fwrite(STDOUT, "Do you wish to create a Staging Environment? y/n: ");
-			$create_staging = trim(fgets(STDIN));
-
-			if($create_staging == 'y'){
-
-				self::_display_message('', 'Setting up Staging Environment for '.$repo_name);
-
-				$new_repo_id = $create_empty_repo->id;
-
+		
+		switch($repo_type){
+			
+			case 'git':
+		
+				self::_display_message('', 'Starting to create '.$repo_name);
+				
 				$api_data = '<?xml version="1.0" encoding="UTF-8"?>
-				<server-environment>
-				  <name>Staging</name>
-				  <automatic>true</automatic>
-				  <color_label>label-grey</color_label>
-				</server-environment>';
-
-				$create_staging_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
-
-				self::display_errors($create_staging_env);
-
-				self::_display_message('', 'Created Staging Environment');
-
-			}
-
-			fwrite(STDOUT, "Do you wish to create a Production Environment? y/n: ");
-			$create_production = trim(fgets(STDIN));
-
-			if($create_production == 'y'){
-
-				self::_display_message('', 'Setting up Production Environment for '.$repo_name);
-
+				<repository>
+				  <name>'.$title.'</name>
+				  <title>'.$repo_name.'</title>
+				  <color_label>label-'.$repo_colour.'</color_label>
+				  <type_id>git</type_id>
+				</repository>';		
+				
+				$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
+				
+				self::display_errors($create_empty_repo);
+		
+				self::_display_message('', 'Finished setting up GIT repo - '.$repo_name);
+				self::_display_message('', 'Git clone URL git@'.$this->beanstalk_account.'.beanstalkapp.com:/'.$repo_name.'.git');
+				
+				self::_display_message('', '********************');
+		
+			break;
+		
+			case 'svn':
+		
 				$api_data = '<?xml version="1.0" encoding="UTF-8"?>
-				<server-environment>
-				  <name>Production</name>
-				  <automatic>false</automatic>
-				  <color_label>label-green</color_label>
-				</server-environment>';
-
-				$create_prod_env = self::make_api_post_call($new_repo_id.'/server_environments.xml',$api_data);
-
-				self::display_errors($create_prod_env);
-
-				self::_display_message('', 'Created Production Environment');
-			}
-
-			self::_display_message('', 'Finished setting up '.$repo_name);
-			self::_display_message('', 'Repo path:  https://'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
-
-			self::_display_message('', '********************');
-
+				<repository>
+				  <name>'.$title.'</name>
+				  <title>'.$repo_name.'</title>
+				  <color_label>label-'.$repo_colour.'</color_label>
+				  <create_structure type="boolean">true</create_structure>
+				</repository>';		
+				
+				$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
+				
+				self::display_errors($create_empty_repo);
+				
+				self::_display_message('', 'Created '.$repo_name);
+				
+				self::_display_message('', 'Finished setting up '.$repo_name);
+				self::_display_message('', 'Repo path:  https://'.$this->beanstalk_account.'.svn.beanstalkapp.com/'.$repo_name);
+				
+				self::_display_message('', '********************');
+				
+			break;
+			
+			case 'mercurial':
+		
+				$api_data = '<?xml version="1.0" encoding="UTF-8"?>
+				<repository>
+				  <name>'.$title.'</name>
+				  <title>'.$repo_name.'</title>
+				  <color_label>label-'.$repo_colour.'</color_label>
+				  <type_id>mercurial</type_id>
+				</repository>';		
+				
+				$create_empty_repo = self::make_api_post_call('repositories.xml',$api_data);
+				
+				self::display_errors($create_empty_repo);
+				
+				self::_display_message('', 'Created '.$repo_name);
+				
+				self::_display_message('', 'Finished setting up '.$repo_name);
+				self::_display_message('', 'Repo path:  https://'.$this->beanstalk_account.'.hg.beanstalkapp.com/'.$repo_name);
+								
+				self::_display_message('', '********************');
+				
+			break;
+		
 		}
-
-	}
-
-
+		
+	} 
+	
+			
 	/**
 	 * Displays help for the end user
 	 *
@@ -1028,7 +1674,7 @@ class Beanstalk
 	 * @author Leon Barrett
 	 */
 	public function help()
-	{
+	{	
 		$string = "\n";
 		$string .= "== Beanstalk
 
@@ -1048,14 +1694,14 @@ repo:deploy-all <repo_name>					# Allows you to re-deploy all files to a reposit
 keys:view									# Lists your public keys
 keys:create									# Creates a new public key
 ";
-
+		
 		$string .= "\n";
-
-		fwrite(STDOUT, $string);
-		exit();
+		
+		self::_display_message('', $string);
+		
 	} // End of help
-
-
+	
+	
 	/**
 	 * Display a message. If it's an error message, also terminate
 	 * the execution of the script.
@@ -1074,35 +1720,35 @@ keys:create									# Creates a new public key
 			$type = 'error';
 			$message = 'You tried to display a message but didn\'t provide the message...';
 		}
-
+		
 		$_message_type = array(
 			'error', 'warning', 'notice',
 		);
-
+		
 		$_label = '';
 		if (in_array($type, $_message_type))
 		{
 			$_label = strtoupper($type) . ': ';
 		}
-
+		
 		$_message  = "\n";
 		$_message .= $_label . $message;
 		$_message .= "\n";
-
+		
 		fwrite(STDOUT, $_message);
-
+		
 		unset($_label, $_message, $message);
-
+		
 		if ($type == 'error' && $continue === FALSE)
 			exit();
 		else
 			return;
 	} // End of _display_message
-
-
+	
+	
 	/**
 	 * _display_growl function.
-	 *
+	 * 
 	 * @access protected
 	 * @static
 	 * @param string $message (default: '')
@@ -1110,52 +1756,56 @@ keys:create									# Creates a new public key
 	 * @return void
 	 */
 	protected static function _display_growl($message='',$title='Beanstalk CLI'){
-
+		
 		$image_path = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk'.DIRECTORY_SEPARATOR.'beanstalk.png';
-
+		
 		exec("growlnotify --image '".$image_path."' --message '".$message."' --title '".$title."'");
-
+		
 		exit();
-
+		
 	}
-
-
+	
+	
 	/**
 	 * _get_input function.
-	 *
+	 * 
 	 * @access protected
 	 * @static
 	 * @return void
 	 */
 	protected static function _get_input(){
-
-		return trim(fgets(STDIN));
-
+	
+		$input = trim(fgets(STDIN));
+		
+		if($input == 'exit') exit();
+		
+		return $input;
+	
 	}
-
-
+	
+	
 	/**
 	 * display_errors function.
-	 *
+	 * 
 	 * @access public
 	 * @param mixed $call
 	 * @return void
 	 */
 	public function display_errors($call){
-
+		
 		if($call->error){
 			self::_display_message('error', 'Errors',TRUE);
-
+			
 			foreach($call->error as $error):
 				self::_display_message('error', $error,TRUE);
 			endforeach;
-
+			
 			exit();
 		}
-
+		
 	}
-
-
+	
+		
 	/**
 	 * Creates a slug for the repo name
 	 *
@@ -1168,20 +1818,20 @@ keys:create									# Creates a new public key
 	public function _create_slug($str, $replace=array(), $delimiter='-') {
 
 		setlocale(LC_ALL, 'en_US.UTF8');
-
+		
 		if( !empty($replace) ) {
 			$str = str_replace((array)$replace, ' ', $str);
 		}
-
+		
 		$clean = iconv('UTF-8', 'ASCII//TRANSLIT', $str);
 		$clean = preg_replace("/[^a-zA-Z0-9\/_|+ -]/", '', $clean);
 		$clean = strtolower(trim($clean, '-'));
 		$clean = preg_replace("/[\/_|+ -]+/", $delimiter, $clean);
-
+		
 		return $clean;
 	}
-
-
+	
+	
 	/**
 	 * Makes a standard API call
 	 *
@@ -1192,23 +1842,23 @@ keys:create									# Creates a new public key
 	 * @author Leon Barrett
 	 */
 	public function make_api_call($api_params){
-
+	
 	  $url = "https://" . $this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
-
+	
 		$ch = NULL;
 		$results = NULL;
-
+		
 		$ch = curl_init();
-
+	
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($ch, CURLOPT_URL, $url);
 		curl_setopt($ch, CURLOPT_USERPWD, $this->beanstalk_username . ':' . $this->beanstalk_password);
-
+	
 		$results = curl_exec($ch);
 		curl_close($ch);
-
+		
 		$xml = @simplexml_load_string($results);
-
+		
 		if(!$xml){
 			$errors[0] = 'error';
 			$errors[1] = $results;
@@ -1216,10 +1866,10 @@ keys:create									# Creates a new public key
 		}
 
 		return $xml;
-
+		
 	}
-
-
+	
+	
 	/**
 	 * Makes a write API call
 	 *
@@ -1230,47 +1880,49 @@ keys:create									# Creates a new public key
 	 * @author Leon Barrett
 	 */
 	public function make_api_post_call($api_params,$post_string){
-
+	
 	  	$url = "https://" .$this->beanstalk_account . ".beanstalkapp.com/api/" . $api_params;
-
+	
 		$ch = NULL;
 		$result = NULL;
-
+		
 		//open connection
 		$ch = curl_init();
-
+		
 		//set the url, number of POST vars, POST data
 		curl_setopt($ch,CURLOPT_URL,$url);
 		curl_setopt($ch, CURLOPT_POST, 1);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml'));
 		curl_setopt($ch,CURLOPT_POSTFIELDS,"$post_string");
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-
+		
 		curl_setopt($ch, CURLOPT_USERPWD, $this->beanstalk_username . ':' . $this->beanstalk_password);
 		//execute post
 		$result = curl_exec($ch);
-
+		
 		//close connection
 		curl_close($ch);
-
+				
 		$xml = @simplexml_load_string($result);
-
+				
 		if(!$xml){
-
+			
 			return false;
 		}
 
 		return $xml;
-
-
+		
+		
 	}
-
-
+	
+	
 }
+
 
 try {
 	$beanstalk = new Beanstalk();
-	$beanstalk->init($argv);
+		
+	$beanstalk->init();
 } catch (Exception $e) {
 	exit('ERROR: ' . $e->getMessage() . "\n");
 }
