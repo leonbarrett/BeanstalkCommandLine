@@ -10,7 +10,7 @@ How
 
 To create a repo try this:
 
-`$ beanstalk repo:create test_repo green`
+`$ beanstalk -m repo:create -r test_repo --colour green`
 
 Installation
 =======
@@ -34,33 +34,48 @@ account = ACCOUNT_NAME
 username = USER_NAME
 password = PASSWORD`
 
-Type `beanstalk help` for help.
+Type `beanstalk --help` for help.
 
 Methods
 =====
 
-`$beanstalk repo:create` - will guide you through creating a repo with optional Staging and Production environments
+`$beanstalk -m repo:create -r REPO_NAME -t (git/svn/mercurial) --colour blue` - will guide you through creating a repo with optional Staging and Production environments
 
-`$beanstalk repo:list` - return a list of repos
+`$beanstalk -m repo:list` - return a list of repos
 
-`$beanstalk repo:search <repo_name>` - search for a repo
+`$beanstalk -m repo:search -r REPO_NAME` - search for a repo
 
-`$beanstalk repo:changes <repo_name>` - will list the most recent changes, grouped by date then ordered by time, with the revision and author
+`$beanstalk -m repo:changes -r REPO_NAME` - will list the most recent changes, grouped by date then ordered by time, with the revision and author
 
-`$beanstalk repo:releases <repo_name>` - will list the most recent releases, grouped by date then ordered by time, with the revision and author
+`$beanstalk -m repo:releases -r REPO_NAME` - will list the most recent releases, grouped by date then ordered by time, with the revision and author
 
-`$beanstalk repo:info <repo_name>` - will show info, and server environments for a repo
+`$beanstalk -m repo:info -r REPO_NAME` - will show info, and server environments for a repo
 
-`$beanstalk repo:deploy <repo_name>` - will allow you to deploy an environment. The script will prompt you for all details.
+`$beanstalk -m repo:deploy -r REPO_NAME -e ENVIRONMENT_NAME -c "commit message" -v REVISION` - will allow you to deploy an environment. The script will prompt you for all details if not passed in.
 
-`$beanstalk repo:deployall <repo_name>` - will allow you to re-deploy all files to an environment. The script will prompt you for all details.
+`$beanstalk -m repo:deployall -r REPO_NAME -e ENVIRONMENT_NAME -c "commit message" -v REVISION` - will allow you to re-deploy all files to an environment. The script will prompt you for all details if not passed in.
+
 
 `$beanstalk account:config` - will allow you to update your Beanstalk config details (passwords are stored as plain text!)
 
 `$beanstalk keys:view` - will allow you to view your SSH keys that have been added to Beanstalk
 
 `$beanstalk keys:create` - will allow you to add the Key on your machine to your Beanstalk account
- 
+
+Parameters
+==========
+
+These are global parameters that will work across the methods:
+
+* -m or --method 		= the method name. This is required to actually do anything. See above for a list of available methods
+* -r or --repository 	= repository name
+* -v or --version 		= revsion (for use with deploying)
+* -e or --environment	= environment name (for use with deploying)
+* -c or --comment		= commit message (for use with deploying)
+* -p or --path			= file path (for use with web previews)
+* -t or --type			= repository type (git/svn/mercurial)
+* --colour				= repository label colour
+
 Notes
 =====
 
@@ -72,4 +87,4 @@ If you plan on using the `$beanstalk repo:create <repo_name> <colour>` method to
 Thanks
 =====
 
-Thanks to https://github.com/AzizLight/fire for inspiration (and initial code) to create the script!
+Thanks to https://github.com/AzizLight/fire for inspiration (and initial code) to create the script and https://github.com/pete-otaqui/ClipClop for the library to parse the command line options
