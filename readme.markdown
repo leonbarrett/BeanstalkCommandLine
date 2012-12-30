@@ -15,6 +15,8 @@ To create a repo try this:
 Installation
 =======
 
+Ensure you have PHP installed as CLI. Run `php -v` to check
+
 Download the file and make it executable
 
 `chmod a+x beanstalk`
