@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+
+    <title>Beanstalkcommandline by leonbarrett</title>
+  </head>
+
+  <body>
+
+    <header>
+      <div class="container">
+        <h1>Beanstalkcommandline</h1>
+        <h2>Command line tool for the hosted version control system Beanstalk, that allows you to create, deploy and view repositories.</h2>
+
+        <section id="downloads">
+          <a href="https://github.com/leonbarrett/BeanstalkCommandLine/zipball/master" class="btn">Download as .zip</a>
+          <a href="https://github.com/leonbarrett/BeanstalkCommandLine/tarball/master" class="btn">Download as .tar.gz</a>
+          <a href="https://github.com/leonbarrett/BeanstalkCommandLine" class="btn btn-github"><span class="icon"></span>View on GitHub</a>
+        </section>
+      </div>
+    </header>
+
+    <div class="container">
+      <section id="main_content">
+        <h1>What</h1>
+
+<p>This is a simple tool to help you out when creating and deploying your Beanstalk repos.</p>
+
+<p>This isn't (yet) a general command line tool that will give you to access all of the features of Beanstalk.</p>
+
+<h1>How</h1>
+
+<p>To create a repo try this:</p>
+
+<p><code>$ beanstalk -m repo:create -r test_repo --colour green</code></p>
+
+<h1>Installation</h1>
+
+<p>Ensure you have PHP installed as CLI. Run <code>php -v</code> to check</p>
+
+<p>Download the file and make it executable</p>
+
+<p><code>chmod a+x beanstalk</code></p>
+
+<p>Either place it in your path, or add to your path.</p>
+
+<p><code>echo 'export PATH=YOURPATHHERE:$PATH' &gt;&gt; ~/.profile</code></p>
+
+<p>When using the tool for the 1st time you will be prompted to add in your Beanstalk details.</p>
+
+<p>You can also add a beanstalk_cli.config to your home directory containing:</p>
+
+<p><code>[account_settings]
+account = ACCOUNT_NAME
+username = USER_NAME
+password = PASSWORD</code></p>
+
+<p>Type <code>beanstalk --help</code> for help.</p>
+
+<h1>Methods</h1>
+
+<p><code>$beanstalk -m repo:create -r REPO_NAME -t (git/svn/mercurial) --colour blue</code> - will guide you through creating a repo with optional Staging and Production environments</p>
+
+<p><code>$beanstalk -m repo:list</code> - return a list of repos</p>
+
+<p><code>$beanstalk -m repo:search -r REPO_NAME</code> - search for a repo</p>
+
+<p><code>$beanstalk -m repo:changes -r REPO_NAME</code> - will list the most recent changes, grouped by date then ordered by time, with the revision and author</p>
+
+<p><code>$beanstalk -m repo:releases -r REPO_NAME</code> - will list the most recent releases, grouped by date then ordered by time, with the revision and author</p>
+
+<p><code>$beanstalk -m repo:info -r REPO_NAME</code> - will show info, and server environments for a repo</p>
+
+<p><code>$beanstalk -m repo:deploy -r REPO_NAME -e ENVIRONMENT_NAME -c "commit message" -v REVISION</code> - will allow you to deploy an environment. The script will prompt you for all details if not passed in.</p>
+
+<p><code>$beanstalk -m repo:deployall -r REPO_NAME -e ENVIRONMENT_NAME -c "commit message" -v REVISION</code> - will allow you to re-deploy all files to an environment. The script will prompt you for all details if not passed in.</p>
+
+<p><code>$beanstalk account:config</code> - will allow you to update your Beanstalk config details (passwords are stored as plain text!)</p>
+
+<p><code>$beanstalk keys:view</code> - will allow you to view your SSH keys that have been added to Beanstalk</p>
+
+<p><code>$beanstalk keys:create</code> - will allow you to add the Key on your machine to your Beanstalk account</p>
+
+<h1>Parameters</h1>
+
+<p>These are global parameters that will work across the methods:</p>
+
+<ul>
+<li>-m or --method        = the method name. This is required to actually do anything. See above for a list of available methods</li>
+<li>-r or --repository    = repository name</li>
+<li>-v or --version       = revsion (for use with deploying)</li>
+<li>-e or --environment   = environment name (for use with deploying)</li>
+<li>-c or --comment       = commit message (for use with deploying)</li>
+<li>-p or --path          = file path (for use with web previews)</li>
+<li>-t or --type          = repository type (git/svn/mercurial)</li>
+<li>--colour              = repository label colour</li>
+</ul><h1>Notes</h1>
+
+<p>When passing in a repo name, this must be the name and not the title. Type <code>$beanstalk -m repo:list</code> to see a list of repos (the names are within brackets).</p>
+
+<h1>Thanks</h1>
+
+<p>Thanks to <a href="https://github.com/AzizLight/fire">https://github.com/AzizLight/fire</a> for inspiration (and initial code) to create the script and <a href="https://github.com/pete-otaqui/ClipClop">https://github.com/pete-otaqui/ClipClop</a> for the library to parse the command line options</p>
+      </section>
+    </div>
+
+    
+  </body>
+</html>
