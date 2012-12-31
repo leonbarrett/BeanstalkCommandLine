@@ -591,6 +591,17 @@ class Beanstalk
 	
 	
 	/**
+	 * use_keychain
+	 * 
+	 * (default value: false)
+	 * 
+	 * @var bool
+	 * @access private
+	 */
+	private $use_keychain = false;
+	
+	
+	/**
 	 * clipclop
 	 * 
 	 * @var mixed
@@ -712,11 +723,20 @@ class Beanstalk
 
 		if (file_exists($config_file) && parse_ini_file($config_file)):
 				$config = parse_ini_file($config_file, TRUE);
-
-				$this->beanstalk_account = $config['account_settings']['account'];
-				$this->beanstalk_username = $config['account_settings']['username'];
-				$this->beanstalk_password = $config['account_settings']['password'];
 				
+				$this->use_kechain 			= 	$config['account_settings']['keychain'];
+				$this->beanstalk_account 	= 	$config['account_settings']['account'];
+				$this->beanstalk_username 	= 	$config['account_settings']['username'];
+
+				if($this->use_kechain){
+					
+					$this->beanstalk_password 	=	self::get_password_from_keychain();
+					
+				}else{
+					
+					$this->beanstalk_password 	= 	$config['account_settings']['password'];
+				}
+								
 			else:				
 				$this->update_config();
 		endif;
@@ -1266,8 +1286,6 @@ class Beanstalk
 			
 		}
 		
-		
-		
 		self::_display_message('',$path);
 		
 		self::open_url($path);
@@ -1335,26 +1353,63 @@ class Beanstalk
 	 * @access public
 	 * @return void
 	 */
-	function update_config(){
-		
-		fwrite(STDOUT, 'Please enter your Beanstalk account details to continue?');
-		
+	function update_config(){	
+						
+		self::_display_message('', 'Please enter your Beanstalk account details to continue');
 		$config_file = $_SERVER['HOME'].DIRECTORY_SEPARATOR.'beanstalk_cli.config';
 		
-		fwrite(STDOUT, "Please enter a Beanstalk Account Name:");
-		$account_name = trim(fgets(STDIN));
+		self::_display_message('', 'Please enter your Beanstalk Account Name:');
+		$account_name = self::_get_input();
 		
-		fwrite(STDOUT, "Please enter a Beanstalk User Name:");
-		$user_name = trim(fgets(STDIN));
+		self::_display_message('', 'Please enter your Beanstalk User Name:');
+		$user_name = self::_get_input();
+				
+		if(self::get_password_from_keychain()){
+								
+			self::_display_message('', 'Keychain password found');
+			
+			$config_file_details = "[account_settings]\nkeychain = true\naccount = ".$account_name."\nusername = ".$user_name;
+			
+		}else{
+			
+			self::_display_message('', 'Please enter your Beanstalk Password:');
+			$password = self::_get_password();				
 		
-		fwrite(STDOUT, "Please enter your Beanstalk Password:");
-		$password = trim(fgets(STDIN));				
-		
-		$config_file_details = "[account_settings]\naccount = ".$account_name."\nusername = ".$user_name."\npassword = ".$password;
-		
+			$config_file_details = "[account_settings]\nkeychain = false\naccount = ".$account_name."\nusername = ".$user_name."\npassword = ".$password;
+			
+		}
+				
 		$fp = fopen($config_file, 'w+');
 		fwrite($fp, $config_file_details);
 		fclose($fp);
+		
+		self::_display_message('', 'Config updated');
+		
+	}
+	
+	
+	/**
+	 * get_password_from_keychain function.
+	 * 
+	 * @access public
+	 * @return void
+	 */
+	function get_password_from_keychain(){
+		
+		$output = array();
+		exec('security 2>&1 >/dev/null find-generic-password -ga beanstalkcli',$output);
+				
+		if($output[0] && $output[0] !="security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain."){
+		
+			$password = $output[0];			
+			$password = str_replace('"', '',$password);
+			$password = str_replace('password: ', '',$password);
+			
+			return $password;
+			
+		}
+		
+		return false;
 		
 	}
 	
