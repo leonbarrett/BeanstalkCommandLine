@@ -1785,6 +1785,45 @@ keys:create									# Creates a new public key
 	
 	
 	/**
+	 * _get_password function.
+	 * 
+	 * @access protected
+	 * @static
+	 * @return void
+	 */
+	protected static function _get_password(){
+	   
+	    // Get current style
+	    $oldStyle = shell_exec('stty -g');
+	
+	        shell_exec('stty -icanon -echo min 1 time 0');
+	
+	        $password = '';
+	        while (true) {
+	            $char = fgetc(STDIN);
+	
+	            if ($char === "\n") {
+	                break;
+	            } else if (ord($char) === 127) {
+	                if (strlen($password) > 0) {
+	                    fwrite(STDOUT, "\x08 \x08");
+	                    $password = substr($password, 0, -1);
+	                }
+	            } else {
+	                fwrite(STDOUT, "*");
+	                $password .= $char;
+	            }
+	        }
+	
+	    // Reset old style
+	    shell_exec('stty ' . $oldStyle);
+	
+	    // Return the password
+	    return $password;
+	}
+	
+	
+	/**
 	 * display_errors function.
 	 * 
 	 * @access public
