@@ -34,6 +34,8 @@ account = ACCOUNT_NAME
 username = USER_NAME
 password = PASSWORD`
 
+If you want to store your Beanstalk password in your Keychain rather than in plain text you can read the guide on the Wiki - https://github.com/leonbarrett/BeanstalkCommandLine/wiki/Using-Keychain
+
 Type `beanstalk --help` for help.
 
 Methods
