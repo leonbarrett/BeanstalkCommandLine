@@ -820,7 +820,7 @@ class Beanstalk
 		    'long' => 'colour',
 		    'value' => TRUE,
 		    'help' => 'Repository type',
-		    'default' => 'white',
+		    'default' => 'grey',
 		));
 		
 		$help = $this->clipclop->getOption('h');
