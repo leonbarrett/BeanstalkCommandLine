@@ -25,6 +25,8 @@ Either place it in your path, or add to your path.
 
 `echo 'export PATH=YOURPATHHERE:$PATH' >> ~/.profile`
 
+For example, if you placed "beanstalk" in a directory called "bin" in your home directory, your path might be: `/Users/<your_username>/bin`.
+
 When using the tool for the 1st time you will be prompted to add in your Beanstalk details.
 
 You can also add a beanstalk_cli.config to your home directory containing:
@@ -33,6 +35,8 @@ You can also add a beanstalk_cli.config to your home directory containing:
 account = ACCOUNT_NAME
 username = USER_NAME
 password = PASSWORD`
+
+*Note: Your account name should be as it appears in your Account URL, not the actual "company name."*
 
 If you want to store your Beanstalk password in your Keychain rather than in plain text you can read the guide on the Wiki - https://github.com/leonbarrett/BeanstalkCommandLine/wiki/Using-Keychain
 
